@@ -1,0 +1,6 @@
+{
+  "name": "Росбраузер",
+  "description": "Росбраузер — импортозамещённый быстрый браузер для Android с летней стеклянной темой, встроенным РосПоиском и защитой.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
