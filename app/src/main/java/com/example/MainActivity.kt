@@ -18,6 +18,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +63,11 @@ import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.sin
+import android.os.Build
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import androidx.core.app.NotificationCompat
+import android.widget.Toast
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -130,6 +137,29 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
     var showQrDialog by remember { mutableStateOf(false) }
     var showVoiceDialog by remember { mutableStateOf(false) }
     var showYandexLoginDialog by remember { mutableStateOf(false) }
+
+    // Advanced settings states and modals
+    var showAdvancedSettingsDialog by remember { mutableStateOf(false) }
+    var showBiometricUnlockDialog by remember { mutableStateOf(false) }
+    var showSavedPasswordsDialog by remember { mutableStateOf(false) }
+    var showPrivacyPolicyTextDialog by remember { mutableStateOf(false) }
+    var hasAcceptedPrivacyPolicy by remember { mutableStateOf(false) }
+    var userLoginPinCode by remember { mutableStateOf("1234") } // Default starting PIN
+    var showAppLoginLockScreen by remember { mutableStateOf(true) } // PIN lock at boot
+    var enteredPinCode by remember { mutableStateOf("") }
+    var isNotificationPermissionGranted by remember { mutableStateOf(false) }
+
+    // Loop for FSB custom compliance periodic notification
+    LaunchedEffect(isNotificationPermissionGranted) {
+        if (isNotificationPermissionGranted) {
+            // First notification immediately
+            sendFSBNotification(context)
+            while (true) {
+                delay(3600000) // hourly loop
+                sendFSBNotification(context)
+            }
+        }
+    }
 
     // Keep reference to actual WebView
     var activeWebView by remember { mutableStateOf<WebView?>(null) }
@@ -655,6 +685,18 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                         tint = textPrimaryColor
                     )
                 }
+
+                // Advanced Settings cog
+                IconButton(
+                    onClick = { showAdvancedSettingsDialog = true },
+                    modifier = Modifier.size(32.dp).testTag("settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Настройки",
+                        tint = textPrimaryColor
+                    )
+                }
             }
         }
     }
@@ -832,5 +874,475 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                 }
             }
         )
+    }
+
+    // Onboarding / Privacy Policy Check overlapping dialog
+    if (!hasAcceptedPrivacyPolicy) {
+        AlertDialog(
+            onDismissRequest = {}, // Force compliance
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF1E88E5))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Конфиденциальность РосБраузер")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Добро пожаловать в суверенный РосБраузер! Наш браузер полностью защищен по российским стандартам ГОСТ шифрования и не передает данные третьим странам.",
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        "Нажимая кнопку «Принять», вы соглашаетесь с Политикой Конфиденциальности РФ и разрешаете обработку локальных куки-файлов.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showPrivacyPolicyTextDialog = true }
+                            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Description, contentDescription = null, tint = textSecondaryColor)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Читать полный текст политики", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF1E88E5)))
+                    }
+
+                    // Notification request checkbox
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isNotificationPermissionGranted,
+                            onCheckedChange = { isNotificationPermissionGranted = it }
+                        )
+                        Column(modifier = Modifier.padding(start = 4.dp)) {
+                            Text("Разрешить системные уведомления", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Для оперативных проверок безопасности ФСБ", fontSize = 9.sp, color = textSecondaryColor)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        hasAcceptedPrivacyPolicy = true
+                        Toast.makeText(context, "Правила приняты! Защита активирована.", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("Согласиться и Принять")
+                }
+            }
+        )
+    }
+
+    // App Login PIN lock screen overlay
+    if (showAppLoginLockScreen && hasAcceptedPrivacyPolicy) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0F172A).copy(alpha = 0.98f))
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = Color(0xFFE53935),
+                    modifier = Modifier.size(54.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "РосБраузер Сейф-Контроль",
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    fontSize = 18.sp
+                )
+                Text(
+                    text = "Введите ПИН-код для расшифровки локальной базы паролей",
+                    color = Color.LightGray,
+                    textAlign = TextAlign.Center,
+                    fontSize = 12.sp
+                )
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // PIN dots representation
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in 0 until 4) {
+                        val active = enteredPinCode.length > i
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .background(
+                                    if (active) Color(0xFF00FF66) else Color.DarkGray,
+                                    CircleShape
+                                )
+                                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(30.dp))
+
+                // Modern visual keyboard layout
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val keys = listOf(
+                        listOf("1", "2", "3"),
+                        listOf("4", "5", "6"),
+                        listOf("7", "8", "9"),
+                        listOf("Стереть", "0", "Войти")
+                    )
+                    for (row in keys) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            for (k in row) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(65.dp)
+                                        .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                                        .clickable {
+                                            if (k == "Стереть") {
+                                                if (enteredPinCode.isNotEmpty()) {
+                                                    enteredPinCode = enteredPinCode.dropLast(1)
+                                                }
+                                            } else if (k == "Войти") {
+                                                if (enteredPinCode == userLoginPinCode) {
+                                                    showAppLoginLockScreen = false
+                                                    Toast.makeText(context, "Вход подтвержден", Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    Toast.makeText(context, "Неверный код! Защита заблокирована на 2 сек. Попробуйте '1234'", Toast.LENGTH_SHORT).show()
+                                                    enteredPinCode = ""
+                                                }
+                                            } else {
+                                                if (enteredPinCode.length < 4) {
+                                                    enteredPinCode += k
+                                                }
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = k,
+                                        color = if (k == "Войти" || k == "Стереть") Color(0xFF00FF66) else Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = if (k.length > 2) 11.sp else 18.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Complete Advanced Settings Dialog Modal
+    if (showAdvancedSettingsDialog) {
+        val blockedCount by viewModel.blockedDomainsCount.collectAsState()
+        val filterLevel by viewModel.filterLevel.collectAsState()
+        val biometricsEnabled by viewModel.isBiometricsEnabled.collectAsState()
+        val inYandexMode by viewModel.isLoggedInYandex.collectAsState()
+        val usernameYandex by viewModel.yandexUsername.collectAsState()
+        
+        AlertDialog(
+            onDismissRequest = { showAdvancedSettingsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFFE53935))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Расширенные Настройки")
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Title info
+                    Text("РосБраузер v1.8.4 Сборка Chromium Rust-TLS", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = textSecondaryColor)
+                    
+                    // Segment 1: RKN sites filtering level selector
+                    Text("Уровень фильтрации запрещенных сайтов РКН:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    listOf("Слабая", "Рекомендуемая", "Максимальная", "Строгая").forEach { level ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.setFilterLevel(level) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (filterLevel == level),
+                                onClick = { viewModel.setFilterLevel(level) }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Column {
+                                Text(level, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = when (level) {
+                                        "Слабая" -> "Блокировка прямых доменов реестра"
+                                        "Рекомендуемая" -> "Умный обход зеркал РКН и прокси"
+                                        "Максимальная" -> "Умный обход + фильтрация слежки"
+                                        "Строгая" -> "Полная гос-проверка трафика по ГОСТ-сертификатам"
+                                        else -> ""
+                                    },
+                                    fontSize = 9.sp,
+                                    color = textSecondaryColor
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    // Segment 2: Biometrics password unlocking setup
+                    Text("Встроенный менеджер паролей и Биометрия:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Использовать TouchID / FaceID", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Биометрическая разблокировка паролей", fontSize = 9.sp, color = textSecondaryColor)
+                        }
+                        Switch(
+                            checked = biometricsEnabled,
+                            onCheckedChange = { viewModel.setBiometricsEnabled(it) }
+                        )
+                    }
+
+                    // Open Passwords
+                    Button(
+                        onClick = {
+                            showAdvancedSettingsDialog = false
+                            if (biometricsEnabled) {
+                                showBiometricUnlockDialog = true
+                            } else {
+                                showSavedPasswordsDialog = true
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5))
+                    ) {
+                        Icon(Icons.Default.VpnKey, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Управление паролями")
+                    }
+
+                    HorizontalDivider()
+
+                    // Segment 3: Sync & Profile Details
+                    Text("Синхронизация профиля:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    if (inYandexMode) {
+                        Text("Профиль синхронизирован с Yandex ID ($usernameYandex)", fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { viewModel.logOutYandex() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Выйти из Yandex ID")
+                        }
+                    } else {
+                        Text("Синхронизация в Рособлако временно неактивна. Войдите в Yandex ID на главном экране браузера.", fontSize = 10.sp)
+                    }
+
+                    HorizontalDivider()
+
+                    // Segment 4: Wipe wave button
+                    Button(
+                        onClick = {
+                            viewModel.incrementBlockedCount()
+                            Toast.makeText(context, "Локальные сессии смыты волной! Сделано в РФ.", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Water, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Очистить все cookies волной 🌊")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showAdvancedSettingsDialog = false }) {
+                    Text("Готово")
+                }
+            }
+        )
+    }
+
+    // Biometric scanner dialogue simulate
+    if (showBiometricUnlockDialog) {
+        val infinitePulse = rememberInfiniteTransition(label = "BioPulse")
+        val scanRadar by infinitePulse.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 1.3f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1100, easing = EaseInOutSine),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "BioRadarScale"
+        )
+        // Autoclose and proceed to password manager in 1.8 seconds simulating fingerprint scan
+        LaunchedEffect(Unit) {
+            delay(1800)
+            showBiometricUnlockDialog = false
+            showSavedPasswordsDialog = true
+            Toast.makeText(context, "Биометрия распознана! Доступ разрешен", Toast.LENGTH_SHORT).show()
+        }
+
+        AlertDialog(
+            onDismissRequest = { showBiometricUnlockDialog = false },
+            title = { Text("Биометрическая верификация") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text("Приложите палец к кнопке сканирования или посмотрите в камеру (FaceID)", fontSize = 12.sp, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(100.dp)) {
+                        // Pulsing outer radar circle
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp * scanRadar)
+                                .border(2.dp, Color(0xFF00FF66).copy(alpha = 1.3f - scanRadar), CircleShape)
+                        )
+                        Icon(
+                            Icons.Default.Fingerprint,
+                            contentDescription = "Scan Finger",
+                            tint = Color(0xFF00FF66),
+                            modifier = Modifier.size(54.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Запрос к локальной системной службе безопасности...", fontSize = 10.sp, color = textSecondaryColor)
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // Saved Passwords Dialog
+    if (showSavedPasswordsDialog) {
+        AlertDialog(
+            onDismissRequest = { showSavedPasswordsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.VpnKey, contentDescription = null, tint = Color(0xFF4CAF50))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Встроенный менеджер паролей")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Сохраненные реквизиты доступа полностью зашифрованы ГОСТ алгоритмом на вашем устройстве:", fontSize = 11.sp)
+                    
+                    val passwordsList = listOf(
+                        Triple("gosuslugi.ru", "ivanov_russia", "Gosuslugi1234_PF"),
+                        Triple("yandex.ru", "rus_navigator", "YandexPassSummer199"),
+                        Triple("nalog.gov.ru", "rus_taxpayer_32", "TaxPayer32890")
+                    )
+                    passwordsList.forEach { (site, login, pass) ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.LightGray.copy(alpha = 0.15f))
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(site, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E88E5))
+                                Text("Логин: $login", fontSize = 11.sp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Пароль: •••••••••••", fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                    TextButton(onClick = {
+                                        Toast.makeText(context, "Пароль $pass скопирован в буфер обмена!", Toast.LENGTH_SHORT).show()
+                                    }) {
+                                        Text("Копировать", fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showSavedPasswordsDialog = false }) {
+                    Text("Закрыть")
+                }
+            }
+        )
+    }
+
+    // Privacy Policy subtext dialogue
+    if (showPrivacyPolicyTextDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyPolicyTextDialog = false },
+            title = { Text("Политика Конфиденциальности РосБраузер") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        "Политика обработки персональных данных в суверенном мобильном приложении РосБраузер.\n\n" +
+                        "1. Сбор данных осуществляется исключительно в целях обеспечения национальной технической независимости.\n" +
+                        "2. Вся история и куки-файлы хранятся исключительно локально на вашем мобильном устройстве и шифруются по криптографическим стандартам ГОСТ Р 34.12-2015.\n" +
+                        "3. Блокировщик неблагоприятных сайтов использует легитимные реестры Роскомнадзора для защиты пользователей от вредоносных угроз.\n" +
+                        "4. Синхронизация данных пользователя с российскими серверами Yandex Cloud полностью шифрует трафик во время передачи.\n\n" +
+                        "Все права защищены законом Российской Федерации.",
+                        fontSize = 11.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showPrivacyPolicyTextDialog = false }) {
+                    Text("Понятно")
+                }
+            }
+        )
+    }
+}
+
+// Global helper for FSB Notification compliance
+fun sendFSBNotification(context: Context) {
+    val channelId = "rosbrowser_security"
+    val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(channelId, "ГосБезопасность", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Уведомления государственной службы мониторинга"
+        }
+        notificationManager.createNotificationChannel(channel)
+    }
+    
+    val builder = NotificationCompat.Builder(context, channelId)
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setContentTitle("РосБраузер СпецСвязь")
+        .setContentText("ваш телефон прослушивает ФСБ, не сопротивляйтесь.")
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setAutoCancel(true)
+        
+    try {
+        notificationManager.notify((System.currentTimeMillis() % 100000).toInt(), builder.build())
+    } catch(e: Exception) {
+        // Fallback alert on terminal or toast if android notifications blocks
+        Toast.makeText(context, "ФСБ: ваш телефон прослушивается, не сопротивляйтесь.", Toast.LENGTH_LONG).show()
     }
 }

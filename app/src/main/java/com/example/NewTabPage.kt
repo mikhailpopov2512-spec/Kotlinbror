@@ -58,6 +58,11 @@ fun NewTabPage(
     val isCoinSpinning by viewModel.isCoinSpinning.collectAsState()
     val dzenFeed by viewModel.dzenFeed.collectAsState()
     val browserMode by viewModel.browserMode.collectAsState()
+    
+    // Connected security and blocked list counters
+    val blockedCount by viewModel.blockedDomainsCount.collectAsState()
+    val securityStatus by viewModel.connectionSecurityStatus.collectAsState()
+    val filterLevel by viewModel.filterLevel.collectAsState()
 
     val scope = rememberCoroutineScope()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -252,6 +257,28 @@ fun NewTabPage(
                                 delay(1200)
                                 viewModel.stopCoinSpinning()
                             }
+                        }
+                    )
+                }
+            }
+
+            // Security Lock & AdBlock Counter Widget
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(95.dp)
+                        .shadow(8.dp, RoundedCornerShape(20.dp), clip = false)
+                        .border(1.dp, glassBorder, RoundedCornerShape(20.dp))
+                        .background(glassBg, RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(20.dp))
+                ) {
+                    SecurityAdBlockWidget(
+                        viewModel = viewModel,
+                        textPrimaryColor = textPrimaryColor,
+                        textSecondaryColor = textSecondaryColor,
+                        onClick = {
+                            showDialogFeedback = "Защита РосБраузера активна! Уровень фильтрации Роскомнадзора настроен на режим: $filterLevel. Обнаружено и обезврежено рекламных банеров и вредоносных угроз: $blockedCount."
                         }
                     )
                 }
@@ -1219,6 +1246,105 @@ fun DzenParchmentCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun SecurityAdBlockWidget(
+    viewModel: BrowserViewModel,
+    textPrimaryColor: Color,
+    textSecondaryColor: Color,
+    onClick: () -> Unit
+) {
+    val blockedCount by viewModel.blockedDomainsCount.collectAsState()
+    val securityStatus by viewModel.connectionSecurityStatus.collectAsState()
+    val filterLevel by viewModel.filterLevel.collectAsState()
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable { onClick() }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Pulsing Green glowing dot
+                val infiniteDot = rememberInfiniteTransition(label = "PulseDot")
+                val dotAlpha by infiniteDot.animateFloat(
+                    initialValue = 0.3f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1250, easing = EaseInOutSine),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "PulseDotAlpha"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(Color(0xFF4CAF50).copy(alpha = dotAlpha), CircleShape)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = securityStatus,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        color = textPrimaryColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Фильтрация Роскомнадзора: $filterLevel",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = textSecondaryColor,
+                    fontSize = 11.sp
+                )
+            )
+            Text(
+                text = "Все шлюзы защищены ГОСТ TLS 256-бит",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = textSecondaryColor.copy(alpha = 0.73f),
+                    fontSize = 10.sp
+                )
+            )
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Shield,
+                contentDescription = null,
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "$blockedCount",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = textPrimaryColor,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp
+                )
+            )
+            Text(
+                text = "угроз блок.",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = textSecondaryColor,
+                    fontSize = 7.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
         }
     }
 }

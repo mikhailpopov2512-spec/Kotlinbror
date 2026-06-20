@@ -109,6 +109,17 @@ fun SummerBackground(
         label = "HoloBlink"
     )
 
+    // Flag wave dynamic angle
+    val flagWaveAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (lowBatteryMode) 4500 else 2500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "FlagWaveAngle"
+    )
+
     // Butterflies and ladybugs state
     val insects = remember {
         mutableStateListOf(
@@ -252,6 +263,12 @@ fun SummerBackground(
                             size = Size(stepW, 6f)
                         )
                     }
+
+                    // Night realistic tree silhouettes along shoreline
+                    drawRealisticTree(width * 0.15f, pathStart, 1.3f, true)
+                    drawRealisticTree(width * 0.32f, pathStart, 1.0f, true)
+                    drawRealisticTree(width * 0.68f, pathStart, 1.2f, true)
+                    drawRealisticTree(width * 0.85f, pathStart, 1.4f, true)
                 }
                 BrowserMode.KIDS -> {
                     // Watercolor Playful Dolphins Background
@@ -309,7 +326,7 @@ fun SummerBackground(
                     drawParallaxClouds(width, height, cloudOffset1, cloudOffset2, cloudOffset3)
 
                     // Tricolor organic flag holographic overlay (10% translucent) in the middle
-                    drawHolographicFlag(width, height, holoBlink)
+                    drawHolographicFlag(width, height, holoBlink, flagWaveAngle)
 
                     // Poppies Field at the bottom (RED color of the flag paired with green meadow)
                     val grassTop = height * 0.73f
@@ -324,6 +341,13 @@ fun SummerBackground(
                         topLeft = Offset(0f, grassTop),
                         size = Size(width, height - grassTop)
                     )
+
+                    // Draw a row of realistic forest trees on the grass horizon behind poppies
+                    drawRealisticTree(width * 0.12f, grassTop, 1.4f, false)
+                    drawRealisticTree(width * 0.28f, grassTop, 1.1f, false)
+                    drawRealisticTree(width * 0.45f, grassTop, 1.5f, false)
+                    drawRealisticTree(width * 0.72f, grassTop, 1.2f, false)
+                    drawRealisticTree(width * 0.88f, grassTop, 1.6f, false)
 
                     // Poppies drawing
                     val seed = 42
@@ -487,42 +511,113 @@ fun DrawScope.drawCloudShape(x: Float, y: Float, scale: Float) {
     drawCircle(color = bColor, radius = 25f * scale, center = Offset(x - 30f * scale, y + 5f * scale))
 }
 
-fun DrawScope.drawHolographicFlag(width: Float, height: Float, holoAlpha: Float) {
-    val blockH = height * 0.12f
-    val startY = height * 0.42f
-
-    // 3 stripes reflecting White, Blue, Red diagonally in a subtle watermark
-    val whiteB = Brush.linearGradient(
-        colors = listOf(Color.White.copy(alpha = holoAlpha * 1.2f), Color.White.copy(alpha = holoAlpha * 0.3f)),
-        start = Offset(0f, startY),
-        end = Offset(width, startY + blockH)
-    )
-    val blueB = Brush.linearGradient(
-        colors = listOf(Color(0xFF1E88E5).copy(alpha = holoAlpha * 1.2f), Color(0xFF1E88E5).copy(alpha = holoAlpha * 0.2f)),
-        start = Offset(0f, startY + blockH),
-        end = Offset(width, startY + blockH * 2)
-    )
-    val redB = Brush.linearGradient(
-        colors = listOf(Color(0xFFE53935).copy(alpha = holoAlpha * 1.2f), Color(0xFFE53935).copy(alpha = holoAlpha * 0.2f)),
-        start = Offset(0f, startY + blockH * 2),
-        end = Offset(width, startY + blockH * 3)
-    )
-
-    // Draw diagonally skewed polygons (Holographic effect)
-    drawSkewedRect(whiteB, startY, blockH, width)
-    drawSkewedRect(blueB, startY + blockH, blockH, width)
-    drawSkewedRect(redB, startY + blockH * 2, blockH, width)
-}
-
-fun DrawScope.drawSkewedRect(brush: Brush, yStart: Float, heightValue: Float, width: Float) {
-    val path = Path().apply {
-        moveTo(0f, yStart + 35f)
-        lineTo(width, yStart - 35f)
-        lineTo(width, yStart + heightValue - 35f)
-        lineTo(0f, yStart + heightValue + 35f)
+fun DrawScope.drawHolographicFlag(width: Float, height: Float, holoAlpha: Float, waveAngle: Float) {
+    val blockH = height * 0.11f
+    val startY = height * 0.35f
+    
+    fun getWaveY(x: Float): Float {
+        return startY + sin(x * 0.005f - waveAngle) * 35f
+    }
+    
+    val whitePath = Path().apply {
+        moveTo(0f, getWaveY(0f))
+        for (x in 5..width.toInt() step 5) {
+            lineTo(x.toFloat(), getWaveY(x.toFloat()))
+        }
+        lineTo(width, getWaveY(width) + blockH)
+        for (x in width.toInt() downTo 0 step 5) {
+            lineTo(x.toFloat(), getWaveY(x.toFloat()) + blockH)
+        }
         close()
     }
-    drawPath(path, brush)
+    
+    val bluePath = Path().apply {
+        moveTo(0f, getWaveY(0f) + blockH)
+        for (x in 5..width.toInt() step 5) {
+            lineTo(x.toFloat(), getWaveY(x.toFloat()) + blockH)
+        }
+        lineTo(width, getWaveY(width) + blockH * 2)
+        for (x in width.toInt() downTo 0 step 5) {
+            lineTo(x.toFloat(), getWaveY(x.toFloat()) + blockH * 2)
+        }
+        close()
+    }
+    
+    val redPath = Path().apply {
+        moveTo(0f, getWaveY(0f) + blockH * 2)
+        for (x in 5..width.toInt() step 5) {
+            lineTo(x.toFloat(), getWaveY(x.toFloat()) + blockH * 2)
+        }
+        lineTo(width, getWaveY(width) + blockH * 3)
+        for (x in width.toInt() downTo 0 step 5) {
+            lineTo(x.toFloat(), getWaveY(x.toFloat()) + blockH * 3)
+        }
+        close()
+    }
+    
+    val whiteBrush = Brush.verticalGradient(
+        colors = listOf(Color.White.copy(alpha = holoAlpha * 1.5f), Color(0xFFF1F5F9).copy(alpha = holoAlpha * 0.7f))
+    )
+    val blueBrush = Brush.verticalGradient(
+        colors = listOf(Color(0xFF0052B4).copy(alpha = holoAlpha * 1.5f), Color(0xFF1E88E5).copy(alpha = holoAlpha * 0.7f))
+    )
+    val redBrush = Brush.verticalGradient(
+        colors = listOf(Color(0xFFD32F2F).copy(alpha = holoAlpha * 1.5f), Color(0xFFE53935).copy(alpha = holoAlpha * 0.7f))
+    )
+    
+    drawPath(whitePath, whiteBrush)
+    drawPath(bluePath, blueBrush)
+    drawPath(redPath, redBrush)
+}
+
+fun DrawScope.drawRealisticTree(x: Float, y: Float, scale: Float, isNight: Boolean) {
+    val trunkWidth = 14f * scale
+    val trunkHeight = 65f * scale
+    val trunkBrush = if (isNight) {
+        Brush.verticalGradient(listOf(Color(0xFF0F1E36), Color(0xFF020617)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFF5D4037), Color(0xFF3E2723)))
+    }
+    
+    val trunkPath = Path().apply {
+        moveTo(x - trunkWidth/2f, y)
+        lineTo(x - trunkWidth * 0.3f, y - trunkHeight)
+        lineTo(x - trunkWidth * 0.8f, y - trunkHeight - 20f * scale)
+        lineTo(x - trunkWidth * 0.4f, y - trunkHeight - 22f * scale)
+        lineTo(x, y - trunkHeight - 8f * scale)
+        lineTo(x + trunkWidth * 0.5f, y - trunkHeight - 25f * scale)
+        lineTo(x + trunkWidth * 0.8f, y - trunkHeight - 23f * scale)
+        lineTo(x + trunkWidth * 0.3f, y - trunkHeight)
+        lineTo(x + trunkWidth/2f, y)
+        close()
+    }
+    drawPath(trunkPath, trunkBrush)
+    
+    val foliageColors = if (isNight) {
+        listOf(
+            Color(0xFF1E293B).copy(alpha = 0.8f),
+            Color(0xFF0F172A).copy(alpha = 0.85f),
+            Color(0xFF334155).copy(alpha = 0.6f)
+        )
+    } else {
+        listOf(
+            Color(0xFF4CB050).copy(alpha = 0.92f),
+            Color(0xFF2E7D32).copy(alpha = 0.95f),
+            Color(0xFF388E3C).copy(alpha = 0.94f),
+            Color(0xFF81C784).copy(alpha = 0.85f)
+        )
+    }
+    
+    val cCenterY = y - trunkHeight - 12f * scale
+    drawCircle(color = foliageColors[1], radius = 30f * scale, center = Offset(x - 22f * scale, cCenterY - 10f * scale))
+    drawCircle(color = foliageColors[1], radius = 30f * scale, center = Offset(x + 22f * scale, cCenterY - 10f * scale))
+    drawCircle(color = foliageColors[0], radius = 35f * scale, center = Offset(x, cCenterY - 26f * scale))
+    drawCircle(color = foliageColors[0], radius = 28f * scale, center = Offset(x - 18f * scale, cCenterY))
+    drawCircle(color = foliageColors[0], radius = 28f * scale, center = Offset(x + 18f * scale, cCenterY))
+    if (foliageColors.size > 3) {
+        drawCircle(color = foliageColors[3], radius = 20f * scale, center = Offset(x - 6f * scale, cCenterY - 34f * scale))
+        drawCircle(color = foliageColors[3], radius = 15f * scale, center = Offset(x + 14f * scale, cCenterY - 15f * scale))
+    }
 }
 
 fun DrawScope.drawKidsDolphins(width: Float, height: Float, tick: Float) {

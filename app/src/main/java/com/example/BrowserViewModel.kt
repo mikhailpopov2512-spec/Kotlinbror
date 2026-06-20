@@ -202,10 +202,95 @@ class BrowserViewModel : ViewModel() {
         _canGoForward.value = can
     }
 
+    // Modern tracking variables
+    private val _connectionSecurityStatus = MutableStateFlow("Защищено (ГОСТ TLS / Protect)")
+    val connectionSecurityStatus = _connectionSecurityStatus.asStateFlow()
+
+    private val _blockedDomainsCount = MutableStateFlow(142)
+    val blockedDomainsCount = _blockedDomainsCount.asStateFlow()
+
+    private val _filterLevel = MutableStateFlow("Рекомендуемая") // "Слабая", "Рекомендуемая", "Максимальная", "Строгая"
+    val filterLevel = _filterLevel.asStateFlow()
+
+    private val _isBiometricsEnabled = MutableStateFlow(true)
+    val isBiometricsEnabled = _isBiometricsEnabled.asStateFlow()
+
+    private val _isPasswordManagerUnlocked = MutableStateFlow(false)
+    val isPasswordManagerUnlocked = _isPasswordManagerUnlocked.asStateFlow()
+
+    private val _isLoggedInYandex = MutableStateFlow(false)
+    val isLoggedInYandex = _isLoggedInYandex.asStateFlow()
+
+    private val _yandexUsername = MutableStateFlow("")
+    val yandexUsername = _yandexUsername.asStateFlow()
+
+    private val _isAdBlockActive = MutableStateFlow(true)
+    val isAdBlockActive = _isAdBlockActive.asStateFlow()
+
+    private val _isEasyListRussiaEnabled = MutableStateFlow(true)
+    val isEasyListRussiaEnabled = _isEasyListRussiaEnabled.asStateFlow()
+
+    private val _isRuAdListEnabled = MutableStateFlow(true)
+    val isRuAdListEnabled = _isRuAdListEnabled.asStateFlow()
+
+    // Setter and toggle functions
+    fun setFilterLevel(level: String) {
+        _filterLevel.value = level
+    }
+
+    fun setBiometricsEnabled(enabled: Boolean) {
+        _isBiometricsEnabled.value = enabled
+        if (!enabled) _isPasswordManagerUnlocked.value = false
+    }
+
+    fun setPasswordManagerUnlocked(unlocked: Boolean) {
+        _isPasswordManagerUnlocked.value = unlocked
+    }
+
+    fun logInYandex(username: String) {
+        if (username.isNotBlank()) {
+            _yandexUsername.value = username
+            _isLoggedInYandex.value = true
+        }
+    }
+
+    fun logOutYandex() {
+        _yandexUsername.value = ""
+        _isLoggedInYandex.value = false
+    }
+
+    fun setAdBlockActive(active: Boolean) {
+        _isAdBlockActive.value = active
+    }
+
+    fun setEasyListRussiaEnabled(enabled: Boolean) {
+        _isEasyListRussiaEnabled.value = enabled
+    }
+
+    fun setRuAdListEnabled(enabled: Boolean) {
+        _isRuAdListEnabled.value = enabled
+    }
+
+    fun incrementBlockedCount() {
+        _blockedDomainsCount.update { it + 1 }
+    }
+
     // Checking blocklists
     fun isBlocklisted(url: String): Boolean {
         val cleanUrl = url.lowercase()
-        return blocklistedDomains.any { cleanUrl.contains(it) }
+        val level = _filterLevel.value
+        val targets = when (level) {
+            "Слабая" -> listOf("blocked.ru", "rkn-ban.com")
+            "Рекомендуемая" -> blocklistedDomains
+            "Максимальная" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru")
+            "Строгая" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru", "untrusted-proxy.net", "malicious-spyware.ru", "adware-network.com")
+            else -> blocklistedDomains
+        }
+        val blocked = targets.any { cleanUrl.contains(it) }
+        if (blocked) {
+            _blockedDomainsCount.value += 1
+        }
+        return blocked
     }
 
     // Kids friendly white list
