@@ -312,12 +312,12 @@ fun SummerBackground(
                     drawKidsDolphins(width, height, sunAngle)
                 }
                 else -> {
-                    // REGULAR / GUEST Modes: Summer Landscape + Russian Flag natural integration
-                    // White (Drifting clouds) / Blue (Sky) / Red (Poppy field)
+                    // REGULAR / GUEST Modes: Enhanced Summer Landscape with Wildflower Meadows & Solar Pollen
+                    // Premium multi-stop bright summer sky
                     val skyDay = Brush.verticalGradient(
-                        colors = listOf(Color(0xFF4A90D9), Color(0xFF87CEEB)),
+                        colors = listOf(Color(0xFF1565C0), Color(0xFF4FC3F7), Color(0xFFE0F7FA)),
                         startY = 0f,
-                        endY = height * 0.7f
+                        endY = height * 0.73f
                     )
                     drawRect(brush = skyDay)
 
@@ -327,19 +327,19 @@ fun SummerBackground(
                     val sunRadius = width * 0.07f
                     // Draw outer aura
                     drawCircle(
-                        color = Color(0xFFFFFFB2).copy(alpha = 0.15f),
-                        radius = sunRadius * 1.8f,
+                        color = Color(0xFFFFFFB2).copy(alpha = 0.25f),
+                        radius = sunRadius * 1.9f,
                         center = Offset(sunX, sunY)
                     )
                     // Draw spinning sun blades
                     rotate(sunAngle, pivot = Offset(sunX, sunY)) {
-                        for (i in 0 until 8) {
-                            rotate(45f * i, pivot = Offset(sunX, sunY)) {
+                        for (i in 0 until 12) {
+                            rotate(30f * i, pivot = Offset(sunX, sunY)) {
                                 drawLine(
-                                    color = Color(0xFFFFF59D),
+                                    color = Color(0xFFFFF59D).copy(alpha = 0.7f),
                                     start = Offset(sunX, sunY - sunRadius),
-                                    end = Offset(sunX, sunY - (sunRadius * 2f)),
-                                    strokeWidth = 6f
+                                    end = Offset(sunX, sunY - (sunRadius * 2.2f)),
+                                    strokeWidth = 5f
                                 )
                             }
                         }
@@ -357,11 +357,35 @@ fun SummerBackground(
                     // Tricolor organic flag holographic overlay (10% translucent) in the middle
                     drawHolographicFlag(width, height, holoBlink, flagWaveAngle)
 
-                    // Poppies Field at the bottom (RED color of the flag paired with green meadow)
+                    // Beautiful glowing solar pollen particles floating gently across the sky
+                    val particlesRandom = kotlin.random.Random(1337)
+                    val particlesCount = 20
+                    for (p in 0 until particlesCount) {
+                        val pxSeed = particlesRandom.nextFloat()
+                        val pySeed = particlesRandom.nextFloat()
+                        val pSize = 4f + particlesRandom.nextFloat() * 5f
+                        val waveX = sin((sunAngle / 18f) + p) * 40f
+                        val waveY = -((sunAngle * 0.4f + p * 150f) % (height + 200f))
+                        val pX = (pxSeed * width + waveX) % width
+                        val pY = (height - (pySeed * height + waveY) % height) % height
+
+                        drawCircle(
+                            color = Color(0xFFFFF9C4).copy(alpha = 0.15f * (0.4f + 0.6f * sin((sunAngle / 8f) + p))),
+                            radius = pSize * 2.5f,
+                            center = Offset(pX, pY)
+                        )
+                        drawCircle(
+                            color = Color(0xFFFFEB3B).copy(alpha = 0.70f * (0.3f + 0.7f * sin((sunAngle / 8f) + p))),
+                            radius = pSize,
+                            center = Offset(pX, pY)
+                        )
+                    }
+
+                    // Wildflowers Meadow at the bottom (Red poppies, White daisies, Blue cornflowers)
                     val grassTop = height * 0.73f
-                    // Grass Base Gradient
+                    // Grass Base Gradient (Lush vibrant wild meadow)
                     val grassBase = Brush.verticalGradient(
-                        colors = listOf(Color(0xFF81C784), Color(0xFF388E3C)),
+                        colors = listOf(Color(0xFF66BB6A), Color(0xFF1B5E20)),
                         startY = grassTop,
                         endY = height
                     )
@@ -378,14 +402,14 @@ fun SummerBackground(
                     drawRealisticTree(width * 0.72f, grassTop, 1.2f, false, flagWaveAngle)
                     drawRealisticTree(width * 0.88f, grassTop, 1.6f, false, flagWaveAngle)
 
-                    // Poppies drawing
+                    // Wildflowers drawing
                     val seed = 42
-                    val random = Random(seed)
-                    val poppiesCount = 45
-                    for (i in 0 until poppiesCount) {
+                    val random = kotlin.random.Random(seed)
+                    val flowersCount = 55
+                    for (i in 0 until flowersCount) {
                         val px = random.nextFloat() * width
                         val py = grassTop + random.nextFloat() * (height - grassTop - 40f)
-                        val pSize = 14f + random.nextFloat() * 12f
+                        val fSize = 10f + random.nextFloat() * 10f
 
                         // Sway offset based on y pos and sway angle
                         val swayFactor = sin(poppySwing + (py / 100f)) * (10f + (height - py) * 0.02f)
@@ -394,28 +418,66 @@ fun SummerBackground(
                         drawLine(
                             color = Color(0xFF2E7D32),
                             start = Offset(px + swayFactor, py),
-                            end = Offset(px, py + pSize * 2f),
-                            strokeWidth = 3f
+                            end = Offset(px, py + fSize * 2f),
+                            strokeWidth = 2.5f
                         )
 
-                        // Red flower petals (poppies!)
-                        drawCircle(
-                            color = Color(0xFFE53935),
-                            radius = pSize,
-                            center = Offset(px + swayFactor, py)
-                        )
-                        // Dark flower core
-                        drawCircle(
-                            color = Color(0xFF212121),
-                            radius = pSize * 0.35f,
-                            center = Offset(px + swayFactor, py)
-                        )
-                        // Tiny highlight speck
-                        drawCircle(
-                            color = Color.White,
-                            radius = pSize * 0.1f,
-                            center = Offset(px + swayFactor + pSize * 0.1f, py - pSize * 0.1f)
-                        )
+                        val flowerType = i % 3
+                        if (flowerType == 0) {
+                            // Red Poppy (красный мак)
+                            drawCircle(
+                                color = Color(0xFFE53935),
+                                radius = fSize,
+                                center = Offset(px + swayFactor, py)
+                            )
+                            drawCircle(
+                                color = Color(0xFF111111),
+                                radius = fSize * 0.35f,
+                                center = Offset(px + swayFactor, py)
+                            )
+                            drawCircle(
+                                color = Color.White,
+                                radius = fSize * 0.1f,
+                                center = Offset(px + swayFactor + fSize * 0.12f, py - fSize * 0.12f)
+                            )
+                        } else if (flowerType == 1) {
+                            // White Daisy (белая ромашка)
+                            val numPetals = 8
+                            for (p in 0 until numPetals) {
+                                val angleRad = (p * 2 * PI / numPetals).toFloat()
+                                val petalX = px + swayFactor + kotlin.math.cos(angleRad) * (fSize * 0.6f)
+                                val petalY = py + sin(angleRad) * (fSize * 0.6f)
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = fSize * 0.4f,
+                                    center = Offset(petalX, petalY)
+                                )
+                            }
+                            // Yellow core
+                            drawCircle(
+                                color = Color(0xFFFFCA28),
+                                radius = fSize * 0.38f,
+                                center = Offset(px + swayFactor, py)
+                            )
+                        } else {
+                            // Blue Cornflower (василёк)
+                            val numPetals = 6
+                            for (p in 0 until numPetals) {
+                                val angleRad = (p * 2 * PI / numPetals).toFloat()
+                                val petalX = px + swayFactor + kotlin.math.cos(angleRad) * (fSize * 0.55f)
+                                val petalY = py + sin(angleRad) * (fSize * 0.55f)
+                                drawCircle(
+                                    color = Color(0xFF1E88E5),
+                                    radius = fSize * 0.35f,
+                                    center = Offset(petalX, petalY)
+                                )
+                            }
+                            drawCircle(
+                                color = Color(0xFF0D47A1),
+                                radius = fSize * 0.22f,
+                                center = Offset(px + swayFactor, py)
+                            )
+                        }
                     }
                 }
             }
