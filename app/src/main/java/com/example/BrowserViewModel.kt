@@ -184,6 +184,7 @@ class BrowserViewModel : ViewModel() {
         _isLoggedInYandex.value = target.isLoggedInYandex
         _yandexUsername.value = target.yandexUsername
         _browserMode.value = target.browserMode
+        _bookmarksList.value = target.bookmarks
 
         // Partition simulation: clean up web cookies on switch
         try {
@@ -205,7 +206,8 @@ class BrowserViewModel : ViewModel() {
             isTrackerBlockingEnabled = _isTrackerBlockingEnabled.value,
             isLoggedInYandex = _isLoggedInYandex.value,
             yandexUsername = _yandexUsername.value,
-            browserMode = _browserMode.value
+            browserMode = _browserMode.value,
+            bookmarks = _bookmarksList.value
         )
         _currentProfile.value = updated
         val list = _profiles.value.map { p -> if (p.id == updated.id) updated else p }
@@ -641,4 +643,68 @@ class BrowserViewModel : ViewModel() {
             feed.map { it.copy(dismissState = "visible") }
         }
     }
+
+    // Bookmarks management
+    private val _bookmarksList = MutableStateFlow<List<String>>(emptyList())
+    val bookmarksList = _bookmarksList.asStateFlow()
+
+    fun toggleBookmark(url: String, context: Context) {
+        val currentList = _bookmarksList.value
+        val newList = if (currentList.contains(url)) {
+            currentList.filter { it != url }
+        } else {
+            currentList + url
+        }
+        _bookmarksList.value = newList
+        saveCurrentProfileState(context)
+    }
+
+    // Promo codes & Admin Panel & Donate Shop states
+    private val _isAdminEnabled = MutableStateFlow(false)
+    val isAdminEnabled = _isAdminEnabled.asStateFlow()
+
+    private val _userBalance = MutableStateFlow(500) // Initial balance is 500 rubles
+    val userBalance = _userBalance.asStateFlow()
+
+    private val _purchasedItems = MutableStateFlow<List<String>>(emptyList())
+    val purchasedItems = _purchasedItems.asStateFlow()
+
+    fun addBalance(amount: Int) {
+        _userBalance.update { it + amount }
+    }
+
+    fun usePromoCode(code: String): String {
+        val trimmed = code.trim().lowercase()
+        if (trimmed == "admin") {
+            _isAdminEnabled.value = true
+            addBalance(5000)
+            return "Успешно! Активирован промокод 'admin'. Вы получили ПРАВА АДМИНИСТРАТОРА и +5000 рублей!"
+        }
+        if (trimmed == "letorussia") {
+            addBalance(1000)
+            return "Успешно! Активирован промокод 'letorussia'. Начислено +1000 рублей!"
+        }
+        if (trimmed == "rosbrowser") {
+            addBalance(500)
+            return "Успешно! Активирован промокод 'rosbrowser'. Начислено +500 рублей!"
+        }
+        return "Ошибка: Неверный или использованный промокод!"
+    }
+
+    fun purchaseItem(item: String, price: Int): String {
+        if (_purchasedItems.value.contains(item)) {
+            return "У вас уже приобретена эта функция!"
+        }
+        if (_userBalance.value < price) {
+            return "Недостаточно средств! Пополните баланс в меню или введите промокод."
+        }
+        _userBalance.update { it - price }
+        _purchasedItems.update { it + item }
+        return "Поздравляем! Вы приобрели '$item' успешно!"
+    }
+
+    fun setAdminStatus(enabled: Boolean) {
+        _isAdminEnabled.value = enabled
+    }
 }
+

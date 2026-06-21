@@ -356,6 +356,66 @@ fun NewTabPage(
                                 .padding(vertical = 12.dp)
                         )
                     }
+
+                    val bookmarks by viewModel.bookmarksList.collectAsState()
+                    if (bookmarks.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Ваши Закладки ⭐️",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = textPrimaryColor
+                            ),
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                        androidx.compose.foundation.lazy.LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            items(bookmarks.size) { index ->
+                                val bookmarkUrl = bookmarks[index]
+                                val displayTitle = bookmarkUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.").replace("yandex.ru","Яндекс").replace("gosuslugi.ru","Госуслуги").take(22)
+                                Card(
+                                    modifier = Modifier
+                                        .clickable { onNavigate(bookmarkUrl) }
+                                        .border(0.5.dp, textSecondaryColor.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = glassBg.copy(alpha = 0.7f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Bookmark,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFFC107),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = displayTitle,
+                                            fontSize = 11.sp,
+                                            color = textPrimaryColor,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        IconButton(
+                                            onClick = { viewModel.toggleBookmark(bookmarkUrl, context) },
+                                            modifier = Modifier.size(16.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Удалить",
+                                                tint = textSecondaryColor.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(11.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1063,9 +1123,9 @@ fun SeaPebbleShortcutTile(
                 contentAlignment = Alignment.Center
             ) {
                 val imageRes = when {
-                    shortcut.url.contains("yandex.ru") -> R.drawable.img_shortcut_yandex_1782028118694
-                    shortcut.url.contains("gosuslugi.ru") -> R.drawable.img_gosuslugi_pebble_1781961477713
-                    shortcut.url.contains("vk.com") -> R.drawable.img_vk_pebble_1781961462500
+                    shortcut.url.contains("yandex.ru") -> R.drawable.yandex_portal_icon_1782032143612
+                    shortcut.url.contains("gosuslugi.ru") -> R.drawable.gosuslugi_portal_icon_1782032160680
+                    shortcut.url.contains("vk.com") -> R.drawable.vk_portal_icon_1782032178795
                     shortcut.url.contains("rustore.ru") || shortcut.url.contains("market.yandex.ru") -> R.drawable.img_sber_pebble_1781961492341
                     else -> null
                 }

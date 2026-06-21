@@ -155,6 +155,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
     var isNotificationPermissionGranted by remember { mutableStateOf(false) }
     var showSecuritySettingsDialog by remember { mutableStateOf(false) }
     var showProfileManagerDialog by remember { mutableStateOf(false) }
+    var showDonateAndPromoDialog by remember { mutableStateOf(false) }
 
     // Initialize profile persistence at launch
     LaunchedEffect(Unit) {
@@ -617,6 +618,24 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                             imageVector = Icons.Default.Home,
                             contentDescription = "Домой",
                             tint = textPrimaryColor
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    val bookmarks by viewModel.bookmarksList.collectAsState()
+                    val isBookmarked = bookmarks.contains(currentUrl)
+                    IconButton(
+                        onClick = {
+                            viewModel.toggleBookmark(currentUrl, context)
+                            val toastMsg = if (!isBookmarked) "Добавлено в закладки" else "Удалено из закладок"
+                            Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(34.dp).testTag("bookmark_star_button")
+                    ) {
+                        Icon(
+                            imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = "Закладка",
+                            tint = if (isBookmarked) Color(0xFFFFC000) else textPrimaryColor
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
@@ -1230,6 +1249,20 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Очистить все cookies волной 🌊")
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = {
+                            showDonateAndPromoDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                        modifier = Modifier.fillMaxWidth().testTag("open_donate_dialog_button")
+                    ) {
+                        Icon(Icons.Default.CardGiftcard, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("💰 Донат-магазин и Промокоды")
+                    }
                 }
             },
             confirmButton = {
@@ -1751,6 +1784,253 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
             },
             confirmButton = {
                 TextButton(onClick = { showProfileManagerDialog = false }) {
+                    Text("Закрыть")
+                }
+            },
+            containerColor = glassBg,
+            textContentColor = textPrimaryColor,
+            titleContentColor = textPrimaryColor
+        )
+    }
+
+    if (showDonateAndPromoDialog) {
+        val balance by viewModel.userBalance.collectAsState()
+        val isAdmin by viewModel.isAdminEnabled.collectAsState()
+        val purchased by viewModel.purchasedItems.collectAsState()
+        val currentProfile by viewModel.currentProfile.collectAsState()
+        var promoInput by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showDonateAndPromoDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CardGiftcard,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9800),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ДонатМаг и Промокоды", fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Balance Section
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, glassBorder.copy(alpha = 0.4f), RoundedCornerShape(14.dp)),
+                        colors = CardDefaults.cardColors(containerColor = glassBg.copy(alpha = 0.3f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Ваш Баланс", fontSize = 11.sp, color = textSecondaryColor)
+                            Text(
+                                "$balance рублей",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF4CAF50)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Button(
+                                    onClick = { viewModel.addBalance(150) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                                    modifier = Modifier.weight(1f).height(32.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text("+150 руб", fontSize = 11.sp)
+                                }
+                                Button(
+                                    onClick = { viewModel.addBalance(500) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                    modifier = Modifier.weight(1f).height(32.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text("+500 руб", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    // Promo Code Entry Section
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Активация Промокода", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = promoInput,
+                                onValueChange = { promoInput = it },
+                                placeholder = { Text("Код (напр. 'admin')", fontSize = 12.sp) },
+                                modifier = Modifier.weight(1f).testTag("promo_code_input_field"),
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(color = textPrimaryColor),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFFFF9800),
+                                    unfocusedBorderColor = textSecondaryColor.copy(alpha = 0.4f)
+                                )
+                            )
+                            Button(
+                                onClick = {
+                                    if (promoInput.isNotBlank()) {
+                                        val result = viewModel.usePromoCode(promoInput)
+                                        Toast.makeText(context, result, Toast.LENGTH_LONG).show()
+                                        promoInput = ""
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                                modifier = Modifier.testTag("apply_promo_button")
+                            ) {
+                                Text("Ввод")
+                            }
+                        }
+                        Text("Попробуйте промокоды: 'admin', 'letorussia', 'rosbrowser'", fontSize = 9.sp, color = textSecondaryColor)
+                    }
+
+                    HorizontalDivider(color = glassBorder.copy(alpha = 0.3f))
+
+                    // Donate Shop items list
+                    Text("Витрина Магазина", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                    val shopItems = listOf(
+                        Triple("VIP Золотой статус профилей", 300, Icons.Default.Star),
+                        Triple("Премиум тема: Галактика Салют", 500, Icons.Default.Lock),
+                        Triple("Российский Турбо-Спидбуст 10G", 1000, Icons.Default.TrendingUp)
+                    )
+
+                    shopItems.forEach { (item, price, icon) ->
+                        val hasBought = purchased.contains(item)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(0.5.dp, glassBorder.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = glassBg.copy(alpha = 0.25f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(item, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                                        Text("Цена: $price руб", fontSize = 10.sp, color = textSecondaryColor)
+                                    }
+                                }
+                                Button(
+                                    onClick = {
+                                        if (!hasBought) {
+                                            val res = viewModel.purchaseItem(item, price)
+                                            Toast.makeText(context, res, Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (hasBought) Color.DarkGray else Color(0xFFFF9800)
+                                    ),
+                                    enabled = !hasBought,
+                                    modifier = Modifier.height(30.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                ) {
+                                    Text(if (hasBought) "Куплено" else "Купить", fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    // Admin Panel Box (Only shows if isAdmin == true)
+                    if (isAdmin) {
+                        HorizontalDivider(color = glassBorder.copy(alpha = 0.4f))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(2.dp, Color(0xFF00FF66), RoundedCornerShape(14.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Build,
+                                            contentDescription = null,
+                                            tint = Color(0xFF00FF66),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            "ПАНЕЛЬ АДМИНИСТРАТОРА v1.8",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF00FF66)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.setAdminStatus(false) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Выход", tint = Color.Red, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+
+                                Text(
+                                    "Вы зашли под секретной служебной ролью Госаппарата. Спецнастройки активны.",
+                                    fontSize = 9.sp,
+                                    color = Color.LightGray
+                                )
+
+                                // Action 1: Add large balance
+                                Button(
+                                    onClick = {
+                                        viewModel.addBalance(10000)
+                                        Toast.makeText(context, "Начислено секретной субсидией +10 000 рублей!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF66)),
+                                    modifier = Modifier.fillMaxWidth().height(34.dp)
+                                ) {
+                                    Text("Начислить +10,000 руб 💸", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                                }
+
+                                // Action 2: Stealth invisible FSB Mode
+                                Button(
+                                    onClick = {
+                                        // Switch active profile to Stealth browser mode instantly
+                                        viewModel.switchProfile(currentProfile?.id ?: "default", context)
+                                        Toast.makeText(context, "ВНИМАНИЕ: Стелс-режим ФСБ принудительно запущен!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Blue),
+                                    modifier = Modifier.fillMaxWidth().height(34.dp)
+                                ) {
+                                    Text("Запустить Стелс-режим ФСБ 🕵️‍♂️", fontSize = 11.sp, color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDonateAndPromoDialog = false }) {
                     Text("Закрыть")
                 }
             },

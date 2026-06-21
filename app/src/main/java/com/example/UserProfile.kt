@@ -16,12 +16,14 @@ data class UserProfile(
     val isLoggedInYandex: Boolean = false,
     val yandexUsername: String = "",
     val browserMode: BrowserMode = BrowserMode.REGULAR,
-    val cookiePartitionId: String = ""
+    val cookiePartitionId: String = "",
+    val bookmarks: List<String> = emptyList()
 ) {
     fun toPreferenceString(): String {
         // Simple robust custom key-value line storage to avoid import/class compilation problems
         val historyStr = history.joinToString(";;;")
         val shortcutsStr = shortcuts.joinToString(";;;") { "${it.id}|||${it.title}|||${it.url}|||${it.isYandexService}" }
+        val bookmarksStr = bookmarks.joinToString(";;;")
         return listOf(
             id,
             name,
@@ -34,7 +36,8 @@ data class UserProfile(
             isLoggedInYandex.toString(),
             yandexUsername,
             browserMode.name,
-            cookiePartitionId
+            cookiePartitionId,
+            bookmarksStr
         ).joinToString("=====")
     }
 
@@ -68,6 +71,7 @@ data class UserProfile(
                 val yandexUsername = parts[9]
                 val browserMode = try { BrowserMode.valueOf(parts[10]) } catch(e: Exception) { BrowserMode.REGULAR }
                 val cookiePartitionId = if (parts.size >= 12) parts[11] else ""
+                val bookmarks = if (parts.size >= 13 && parts[12].isNotEmpty()) parts[12].split(";;;") else emptyList()
 
                 return UserProfile(
                     id = id,
@@ -81,7 +85,8 @@ data class UserProfile(
                     isLoggedInYandex = isLoggedInYandex,
                     yandexUsername = yandexUsername,
                     browserMode = browserMode,
-                    cookiePartitionId = cookiePartitionId
+                    cookiePartitionId = cookiePartitionId,
+                    bookmarks = bookmarks
                 )
             } catch (e: Exception) {
                 return null

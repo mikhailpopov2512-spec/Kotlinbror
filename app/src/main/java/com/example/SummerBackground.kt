@@ -512,113 +512,163 @@ fun DrawScope.drawCloudShape(x: Float, y: Float, scale: Float) {
 }
 
 fun DrawScope.drawHolographicFlag(width: Float, height: Float, holoAlpha: Float, waveAngle: Float) {
-    val blockH = height * 0.11f
+    val blockH = height * 0.10f
     val startY = height * 0.35f
+    val flagpoleX = 25f
     
-    // Complex 3D mesh physics approximation for flag tissue under summer wind
-    fun getPhysicsWaveY(x: Float, rowOffset: Float): Float {
-        // Double periodic waving function simulating cloth tension
-        val primaryWave = sin(x * 0.0045f - waveAngle) * 32f
-        val secondaryWrinkle = sin(x * 0.02f - waveAngle * 2.3f) * 6f * (x / width) // wrinkles grow further from flagpole
-        val verticalSlump = (1f - kotlin.math.cos(x / width * Math.PI.toFloat() * 0.5f)) * 14f // gravity slump
-        return startY + primaryWave + secondaryWrinkle + verticalSlump + rowOffset
-    }
-    
-    // Normal calculation for shade mapping (fabric folds shading)
-    // Derivative of the wave function gives a gradient used for lighting
-    fun getShadingFactor(x: Float): Float {
-        val slope = kotlin.math.cos(x * 0.0045f - waveAngle) * 0.15f + kotlin.math.cos(x * 0.02f - waveAngle * 2.3f) * 0.1f
-        return (0.85f + 0.3f * slope).coerceIn(0.5f, 1.3f)
+    // Draw flagpole (steel textured vector)
+    drawLine(
+        color = Color(0xFF78909C),
+        start = Offset(flagpoleX, startY - 20f),
+        end = Offset(flagpoleX, startY + blockH * 3.5f),
+        strokeWidth = 6f
+    )
+    drawCircle(
+        color = Color(0xFFCFD8DC),
+        radius = 8f,
+        center = Offset(flagpoleX, startY - 20f)
+    )
+
+    // Cloth mesh simulation parameters
+    val numPointsX = 35
+    val numPointsY = 12
+    val flagW = width - flagpoleX - 40f
+    val flagH = blockH * 3f
+    val stepX = flagW / (numPointsX - 1)
+    val stepY = flagH / (numPointsY - 1)
+
+    // Precalculate physical nodes approximating tension mass-spring model
+    val nodes = Array(numPointsX) { i ->
+        Array(numPointsY) { j ->
+            val localX = flagpoleX + i * stepX
+            val localY = startY + j * stepY
+            
+            // Cloth physics: Wind propagation based on distance from flagpole index
+            val propagationDelay = i * 0.18f
+            val windIntensity = 1f + (i.toFloat() / numPointsX) * 0.5f // wind amplitude increases at flag tip
+            
+            val waveX = sin(waveAngle * 2.5f - propagationDelay) * 6f * (i.toFloat() / numPointsX)
+            val waveY = sin(waveAngle * 1.8f - propagationDelay) * 22f * windIntensity * (i.toFloat() / numPointsX)
+            
+            // Gravity sag / slump
+            val sag = (i * i * 0.015f) * (1f - (j.toFloat() / numPointsY) * 0.2f)
+            
+            Offset(localX + waveX, localY + waveY + sag)
+        }
     }
 
-    fun drawPhysFlagStrip(startRow: Float, endRow: Float, brushList: List<Color>, alpha: Float) {
-        val steps = 40
-        val stepW = width / steps
+    // Render the three colors of the flag using procedural mesh polygons
+    val alphaCoeff = holoAlpha * 1.6f
+    val stripColors = listOf(
+        Pair(Color(0xFFFFFFFF), Color(0xFFECEFF1)), // White strip
+        Pair(Color(0xFF0D47A1), Color(0xFF1976D2)), // Blue strip
+        Pair(Color(0xFFB71C1C), Color(0xFFD32F2F))  // Red strip
+    )
+
+    // For each strip (each spans numPointsY / 3 rows)
+    val rowsPerStrip = numPointsY / 3
+    for (stripIndex in 0 until 3) {
+        val startRow = stripIndex * rowsPerStrip
+        val endRow = (stripIndex + 1) * rowsPerStrip
+
         val path = Path()
-        
-        // Move to start
-        path.moveTo(0f, getPhysicsWaveY(0f, startRow))
-        for (i in 1..steps) {
-            val x = i * stepW
-            path.lineTo(x, getPhysicsWaveY(x, startRow))
+        // Build top edge of the strip (left to right)
+        path.moveTo(nodes[0][startRow].x, nodes[0][startRow].y)
+        for (i in 1 until numPointsX) {
+            path.lineTo(nodes[i][startRow].x, nodes[i][startRow].y)
         }
-        path.lineTo(width, getPhysicsWaveY(width, endRow))
-        for (i in steps downTo 0) {
-            val x = i * stepW
-            path.lineTo(x, getPhysicsWaveY(x, endRow))
+        // Build right edge
+        for (j in startRow + 1 until endRow) {
+            path.lineTo(nodes[numPointsX - 1][j].x, nodes[numPointsX - 1][j].y)
+        }
+        // Build bottom edge (right to left)
+        for (i in numPointsX - 1 downTo 0) {
+            path.lineTo(nodes[i][endRow - 1].x, nodes[i][endRow - 1].y)
+        }
+        // Build left edge back to start
+        for (j in endRow - 2 downTo startRow) {
+            path.lineTo(nodes[0][j].x, nodes[0][j].y)
         }
         path.close()
 
-        // Create gradient shade with light reflection (fabric wrinkles shadowing)
-        val shaderBrush = Brush.horizontalGradient(
-            0f to brushList[0].copy(alpha = alpha),
-            width * 0.25f to brushList[1].copy(alpha = alpha),
-            width * 0.55f to brushList[0].copy(alpha = alpha),
-            width * 0.85f to brushList[1].copy(alpha = alpha),
-            width to brushList[0].copy(alpha = alpha)
+        val gradient = Brush.horizontalGradient(
+            colors = listOf(stripColors[stripIndex].first.copy(alpha = alphaCoeff), stripColors[stripIndex].second.copy(alpha = alphaCoeff)),
+            startX = flagpoleX,
+            endX = width
         )
-        drawPath(path, shaderBrush)
-        
-        // Draw fine vertical shades using individual segment paths for authentic physical depth
-        for (i in 0 until steps) {
-            val xL = i * stepW
-            val xR = (i + 1) * stepW
-            val shade = getShadingFactor(xL + stepW / 2)
-            val shadeColor = if (shade > 1.0f) {
-                Color.White.copy(alpha = (shade - 1.0f) * 0.4f * alpha)
-            } else {
-                Color.Black.copy(alpha = (1.0f - shade) * 0.45f * alpha)
-            }
-            
-            val shadowPath = Path().apply {
-                moveTo(xL, getPhysicsWaveY(xL, startRow))
-                lineTo(xR, getPhysicsWaveY(xR, startRow))
-                lineTo(xR, getPhysicsWaveY(xR, endRow))
-                lineTo(xL, getPhysicsWaveY(xL, endRow))
-                close()
-            }
-            drawPath(shadowPath, Brush.verticalGradient(listOf(shadeColor, Color.Transparent, shadeColor)))
-        }
+        drawPath(path, gradient)
     }
 
-    val alphaCoeff = holoAlpha * 1.5f
-    
-    // Russian Tricolor strips
-    drawPhysFlagStrip(0f, blockH, listOf(Color.White, Color(0xFFF1F5F9)), alphaCoeff)
-    drawPhysFlagStrip(blockH, blockH * 2, listOf(Color(0xFF0052B4), Color(0xFF1E88E5)), alphaCoeff)
-    drawPhysFlagStrip(blockH * 2, blockH * 3, listOf(Color(0xFFD32F2F), Color(0xFFE53935)), alphaCoeff)
+    // 3. Draw physical coordinate grid overlay mapping threads & wrinkles (fabric quality)
+    for (i in 0 until numPointsX - 1) {
+        for (j in 0 until numPointsY - 1) {
+            // Shade factors based on wave derivative (slope of fabric folds)
+            val pA = nodes[i][j]
+            val pB = nodes[i + 1][j]
+            val pC = nodes[i][j + 1]
+            
+            val dy = (pB.y - pA.y) / stepX
+            val shadeVal = (1.0f + dy * 0.45f).coerceIn(0.5f, 1.5f)
+            
+            // Draw transparent vector crease shadow lines
+            val creaseColor = if (shadeVal > 1.0f) {
+                Color.White.copy(alpha = (shadeVal - 1.0f) * 0.16f * alphaCoeff)
+            } else {
+                Color.Black.copy(alpha = (1.0f - shadeVal) * 0.18f * alphaCoeff)
+            }
+            
+            // Vertical thread stitching approximation
+            drawLine(
+                color = creaseColor,
+                start = pA,
+                end = pC,
+                strokeWidth = 1.5f
+            )
+            
+            // Horizontal fabric stretching line
+            if (i % 2 == 0) {
+                drawLine(
+                    color = Color.White.copy(alpha = 0.04f * alphaCoeff),
+                    start = pA,
+                    end = pB,
+                    strokeWidth = 1f
+                )
+            }
+        }
+    }
 }
 
 fun DrawScope.drawRealisticTree(x: Float, y: Float, scale: Float, isNight: Boolean, swayAngle: Float) {
-    // Math sway values representing wind action on trunk vs crown
-    val trunkSway = sin(swayAngle) * 2f * scale
-    val branchSway = sin(swayAngle * 1.5f) * 6f * scale
-    val leavesSwayX = sin(swayAngle * 1.2f) * 12f * scale
-    val leavesSwayY = kotlin.math.cos(swayAngle * 0.8f) * 4f * scale
+    // Dynamic physics sway
+    val trunkSway = sin(swayAngle) * 2.5f * scale
+    val branchSway = sin(swayAngle * 1.4f) * 7f * scale
+    val leavesSwayX = sin(swayAngle * 1.1f) * 11f * scale
+    val leavesSwayY = kotlin.math.cos(swayAngle * 0.75f) * 4.5f * scale
 
-    val trunkWidth = 14f * scale
-    val trunkHeight = 65f * scale
+    val trunkWidth = 15f * scale
+    val trunkHeight = 62f * scale
+    
     val trunkBrush = if (isNight) {
         Brush.verticalGradient(listOf(Color(0xFF0F1E36), Color(0xFF020617)))
     } else {
         Brush.verticalGradient(listOf(Color(0xFF5D4037), Color(0xFF3E2723)))
     }
     
-    // Draw trunk with subtle organic branch geometry that sways slightly
+    // Draw tree trunk and branching vectors
     val trunkPath = Path().apply {
         moveTo(x - trunkWidth/2f, y)
         lineTo(x - trunkWidth * 0.3f + trunkSway, y - trunkHeight)
-        lineTo(x - trunkWidth * 0.8f + branchSway - 10f * scale, y - trunkHeight - 20f * scale)
-        lineTo(x - trunkWidth * 0.4f + branchSway, y - trunkHeight - 22f * scale)
-        lineTo(x + trunkSway, y - trunkHeight - 8f * scale)
-        lineTo(x + trunkWidth * 0.5f + branchSway + 10f * scale, y - trunkHeight - 25f * scale)
-        lineTo(x + trunkWidth * 0.8f + branchSway + 18f * scale, y - trunkHeight - 23f * scale)
+        lineTo(x - trunkWidth * 0.8f + branchSway - 11f * scale, y - trunkHeight - 18f * scale)
+        lineTo(x - trunkWidth * 0.4f + branchSway, y - trunkHeight - 20f * scale)
+        lineTo(x + trunkSway, y - trunkHeight - 10f * scale)
+        lineTo(x + trunkWidth * 0.5f + branchSway + 11f * scale, y - trunkHeight - 22f * scale)
+        lineTo(x + trunkWidth * 0.8f + branchSway + 17f * scale, y - trunkHeight - 20f * scale)
         lineTo(x + trunkWidth/2f, y)
         close()
     }
     drawPath(trunkPath, trunkBrush)
     
-    // Foliage Group palette
+    // Foliage Group palette (procedural layers)
     val foliageColors = if (isNight) {
         listOf(
             Color(0xFF1E293B).copy(alpha = 0.85f),
@@ -631,76 +681,82 @@ fun DrawScope.drawRealisticTree(x: Float, y: Float, scale: Float, isNight: Boole
             Color(0xFF2E7D32).copy(alpha = 0.96f), // Mid-green
             Color(0xFF1B5E20).copy(alpha = 0.98f), // Dark shadow green
             Color(0xFF4CAF50).copy(alpha = 0.95f), // Rich green
-            Color(0xFF81C784).copy(alpha = 0.9f),  // Highlight light green
-            Color(0xFFA5D6A7).copy(alpha = 0.82f)  // Warm solar top leaves
+            Color(0xFF81C784).copy(alpha = 0.92f), // Highlight light green
+            Color(0xFFA5D6A7).copy(alpha = 0.85f)  // Warm solar top leaves
         )
     }
     
-    val cCenterY = y - trunkHeight - 12f * scale
+    val cCenterY = y - trunkHeight - 10f * scale
 
-    // Procedural Leafy Clusters: Draw multiple layered circles representing dense foliage.
-    // Animating circle positions and radii to mock leaf-movement & wind friction.
-    val layers = listOf(
-        // (X-offset, Y-offset, BaseRadius, ColorIndex, SwayPhaseShift)
-        Triple(-22f * scale, -10f * scale, 30f * scale),
-        Triple(22f * scale, -10f * scale, 30f * scale),
-        Triple(0f * scale, -26f * scale, 36f * scale),
-        Triple(-18f * scale, 0f, 28f * scale),
-        Triple(18f * scale, 0f, 28f * scale)
+    // Realistic foliage blobs
+    val chunks = listOf(
+        Triple(-20f * scale, -10f * scale, 28f * scale),
+        Triple(20f * scale, -10f * scale, 28f * scale),
+        Triple(0f * scale, -25f * scale, 34f * scale),
+        Triple(-15f * scale, 4f * scale, 26f * scale),
+        Triple(15f * scale, 4f * scale, 26f * scale)
     )
 
-    layers.forEachIndexed { index, (oX, oY, r) ->
-        val phase = index * 0.45f
-        val indSwayX = leavesSwayX + sin(swayAngle * 1.4f + phase) * 4f * scale
-        val indSwayY = leavesSwayY + kotlin.math.cos(swayAngle * 1.1f + phase) * 2f * scale
+    chunks.forEachIndexed { index, (oX, oY, r) ->
+        val phase = index * 0.5f
+        val indSwayX = leavesSwayX + sin(swayAngle * 1.3f + phase) * 3f * scale
+        val indSwayY = leavesSwayY + kotlin.math.cos(swayAngle * 1.0f + phase) * 2f * scale
         
-        // Shader-like micro-gradients representing daylight diffusion inside foliage
-        val foliageBrush = Brush.radialGradient(
+        val radialBrush = Brush.radialGradient(
             colors = listOf(foliageColors[index % foliageColors.size], foliageColors[(index + 1) % foliageColors.size]),
-            center = Offset(x + oX + indSwayX - r*0.3f, cCenterY + oY + indSwayY - r*0.3f),
-            radius = r * 1.2f
+            center = Offset(x + oX + indSwayX - r * 0.25f, cCenterY + oY + indSwayY - r * 0.25f),
+            radius = r * 1.25f
         )
         drawCircle(
-            brush = foliageBrush,
-            radius = r + sin(swayAngle * 2.5f + phase) * 1.5f * scale, // breathing leaves effect
+            brush = radialBrush,
+            radius = r + sin(swayAngle * 2.2f + phase) * 1.2f * scale,
             center = Offset(x + oX + indSwayX, cCenterY + oY + indSwayY)
         )
     }
 
-    // Top highlights/shimmering wind leaves (Shader-foliage overlay layer)
-    if (!isNight && foliageColors.size > 4) {
-        val microLeaves = listOf(
-            Offset(-12f * scale, -32f * scale) to 18f * scale,
-            Offset(12f * scale, -22f * scale) to 15f * scale,
-            Offset(0f, -42f * scale) to 22f * scale,
-            Offset(-28f * scale, -18f * scale) to 14f * scale,
-            Offset(28f * scale, -18f * scale) to 14f * scale
-        )
-        microLeaves.forEachIndexed { i, (pos, r) ->
-            val phase = i * 0.73f
-            val leafX = x + pos.x + leavesSwayX + sin(swayAngle * 1.8f + phase) * 6f * scale
-            val leafY = cCenterY + pos.y + leavesSwayY + kotlin.math.cos(swayAngle * 1.3f + phase) * 3f * scale
+    // Procedural Leaf Shader elements (individual vector-rendered leaves)
+    if (!isNight) {
+        val numLeaves = 15
+        val random = kotlin.random.Random(x.toInt() + y.toInt())
+        for (i in 0 until numLeaves) {
+            val leafRadius = (8f + random.nextFloat() * 6f) * scale
+            val leafAngle = random.nextFloat() * 360f + (swayAngle * 10f)
             
-            // Draw a shiny warm leaf highlight
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(foliageColors[4], foliageColors[3]),
-                    center = Offset(leafX - r*0.4f, leafY - r*0.4f),
-                    radius = r
-                ),
-                radius = r,
-                center = Offset(leafX, leafY)
-            )
-
-            // Draw procedural details inside (shimmering leaf dots mimicking realistic sunlit foliage shader)
-            val shimmerCount = 5
-            for (j in 0 until shimmerCount) {
-                val dx = sin(swayAngle * 3f + i + j) * (r * 0.4f)
-                val dy = kotlin.math.cos(swayAngle * 2.1f + i + j) * (r * 0.4f)
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.35f + 0.15f * sin(swayAngle * 4f + i + j)),
-                    radius = 2f * scale,
-                    center = Offset(leafX + dx, leafY + dy)
+            // Random distribution within crown region
+            val leafOffX = (random.nextFloat() * 70f - 35f) * scale
+            val leafOffY = (random.nextFloat() * 80f - 50f) * scale
+            
+            val finalX = x + leafOffX + leavesSwayX
+            val finalY = cCenterY + leafOffY + leavesSwayY
+            
+            val leafColor = foliageColors[random.nextInt(foliageColors.size)]
+            
+            // Vector Leaf Drawing: pointed leaf tip procedural path
+            rotate(leafAngle, pivot = Offset(finalX, finalY)) {
+                val leafPath = Path().apply {
+                    moveTo(finalX, finalY - leafRadius)
+                    // Curving out to the right
+                    cubicTo(
+                        finalX + leafRadius * 0.6f, finalY - leafRadius * 0.5f,
+                        finalX + leafRadius * 0.6f, finalY + leafRadius * 0.5f,
+                        finalX, finalY + leafRadius
+                    )
+                    // Curving back to the left
+                    cubicTo(
+                        finalX - leafRadius * 0.6f, finalY + leafRadius * 0.5f,
+                        finalX - leafRadius * 0.6f, finalY - leafRadius * 0.5f,
+                        finalX, finalY - leafRadius
+                    )
+                    close()
+                }
+                drawPath(leafPath, leafColor)
+                
+                // Leaf central vein (shading line)
+                drawLine(
+                    color = Color.White.copy(alpha = 0.18f),
+                    start = Offset(finalX, finalY - leafRadius),
+                    end = Offset(finalX, finalY + leafRadius),
+                    strokeWidth = 1f * scale
                 )
             }
         }
