@@ -21,6 +21,19 @@ jobs:
           java-version: '17'
           distribution: 'zulu'
 
+      - name: Bootstrap Valid Gradle Wrapper JAR
+        run: |
+          mkdir -p gradle/wrapper
+          if command -v gradle >/dev/null 2>&1; then
+            echo "Generating Gradle wrapper jar using pre-installed gradle..."
+            gradle wrapper
+          else
+            echo "Gradle CLI not found, downloading from official gradle GitHub repository tag..."
+            curl -sSLo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.0/gradle/wrapper/gradle-wrapper.jar
+          fi
+          # Verify file size and properties
+          ls -lh gradle/wrapper/gradle-wrapper.jar
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
@@ -64,6 +77,19 @@ jobs:
         with:
           java-version: '17'
           distribution: 'zulu'
+
+      - name: Bootstrap Valid Gradle Wrapper JAR
+        run: |
+          mkdir -p gradle/wrapper
+          if command -v gradle >/dev/null 2>&1; then
+            echo "Generating Gradle wrapper jar using pre-installed gradle..."
+            gradle wrapper
+          else
+            echo "Gradle CLI not found, downloading from official gradle GitHub repository tag..."
+            curl -sSLo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.0/gradle/wrapper/gradle-wrapper.jar
+          fi
+          # Verify file size and properties
+          ls -lh gradle/wrapper/gradle-wrapper.jar
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
