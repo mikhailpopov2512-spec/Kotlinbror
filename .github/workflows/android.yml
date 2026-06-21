@@ -32,6 +32,11 @@ jobs:
             touch .env
           fi
 
+      - name: Bootstrap Valid Gradle Wrapper JAR
+        run: |
+          mkdir -p gradle/wrapper
+          curl -sSLo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.5/gradle/wrapper/gradle-wrapper.jar
+
       - name: Change permissions for Gradlew
         run: chmod +x gradlew
 
@@ -71,6 +76,11 @@ jobs:
           else
             touch .env
           fi
+
+      - name: Bootstrap Valid Gradle Wrapper JAR
+        run: |
+          mkdir -p gradle/wrapper
+          curl -sSLo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.5/gradle/wrapper/gradle-wrapper.jar
 
       - name: Change permissions for Gradlew
         run: chmod +x gradlew

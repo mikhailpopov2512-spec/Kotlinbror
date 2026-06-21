@@ -162,8 +162,10 @@ class BrowserViewModel : ViewModel() {
 
         _profiles.value = loaded
         val activeId = persistence.loadActiveProfileId() ?: "sahalin"
-        val active = loaded.find { it.id == activeId } ?: loaded.first()
-        switchProfile(active.id, context)
+        val active = loaded.find { it.id == activeId } ?: loaded.firstOrNull()
+        if (active != null) {
+            switchProfile(active.id, context)
+        }
     }
 
     fun switchProfile(profileId: String, context: Context) {
@@ -239,7 +241,9 @@ class BrowserViewModel : ViewModel() {
         _profiles.value = newList
         persistence.saveProfiles(newList)
         if (_currentProfile.value?.id == profileId) {
-            switchProfile(newList.first().id, context)
+            newList.firstOrNull()?.let {
+                switchProfile(it.id, context)
+            }
         }
     }
 

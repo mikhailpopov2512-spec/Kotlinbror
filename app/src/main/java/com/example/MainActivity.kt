@@ -118,7 +118,11 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
     var deviceBatteryPercent by remember { mutableStateOf(100) }
     LaunchedEffect(Unit) {
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        val batteryStatus = context.registerReceiver(null, intentFilter)
+        val batteryStatus = try {
+            context.registerReceiver(null, intentFilter)
+        } catch (e: Throwable) {
+            null
+        }
         val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         if (level >= 0 && scale > 0) {
