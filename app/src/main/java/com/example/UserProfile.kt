@@ -116,4 +116,44 @@ class UserProfilePersistence(context: Context) {
     fun loadActiveProfileId(): String? {
         return prefs.getString("active_profile_id", null)
     }
+
+    fun saveSummerBgAnimEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("summer_bg_anim_enabled", enabled).apply()
+    }
+
+    fun loadSummerBgAnimEnabled(): Boolean {
+        return prefs.getBoolean("summer_bg_anim_enabled", true)
+    }
+
+    fun saveFlagWaveSpeed(speed: Float) {
+        prefs.edit().putFloat("flag_wave_speed", speed).apply()
+    }
+
+    fun loadFlagWaveSpeed(): Float {
+        return prefs.getFloat("flag_wave_speed", 1.0f)
+    }
+
+    fun saveSearchEnginePreset(preset: String) {
+        prefs.edit().putString("search_engine_preset", preset).apply()
+    }
+
+    fun loadSearchEnginePreset(): String {
+        return prefs.getString("search_engine_preset", "RosPoisk") ?: "RosPoisk"
+    }
+
+    fun saveFontSizeScale(scale: Float) {
+        prefs.edit().putFloat("font_size_scale", scale).apply()
+    }
+
+    fun loadFontSizeScale(): Float {
+        return prefs.getFloat("font_size_scale", 1.0f)
+    }
+
+    fun saveHapticVibeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("haptic_vibe_enabled", enabled).apply()
+    }
+
+    fun loadHapticVibeEnabled(): Boolean {
+        return prefs.getBoolean("haptic_vibe_enabled", true)
+    }
 }

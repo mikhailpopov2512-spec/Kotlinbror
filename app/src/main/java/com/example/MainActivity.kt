@@ -53,6 +53,9 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -113,6 +116,13 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
     val browserMode by viewModel.browserMode.collectAsState()
     val isWebViewLoading by viewModel.isWebViewLoading.collectAsState()
     val canGoBack by viewModel.canGoBack.collectAsState()
+
+    // Collected Advanced Custom Settings Configurations
+    val isSummerBgAnimEnabled by viewModel.isSummerBgAnimEnabled.collectAsState()
+    val flagWaveSpeed by viewModel.flagWaveSpeed.collectAsState()
+    val searchEnginePreset by viewModel.searchEnginePreset.collectAsState()
+    val fontSizeScale by viewModel.fontSizeScale.collectAsState()
+    val isHapticVibeEnabled by viewModel.isHapticVibeEnabled.collectAsState()
 
     // Detect device battery percent at launch to set low-charge optimization
     var deviceBatteryPercent by remember { mutableStateOf(100) }
@@ -239,7 +249,9 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
         // 1. Dynamic Live Summer Background (Or Incognito/Stealth matrix theme)
         SummerBackground(
             mode = browserMode,
-            lowBatteryMode = isPowerSaveActive
+            lowBatteryMode = isPowerSaveActive,
+            isAnimEnabled = isSummerBgAnimEnabled,
+            flagSpeedMultiplier = flagWaveSpeed
         )
 
         // 2. Main content container (Top Bar + Main Body + Bottom Space)
@@ -1125,6 +1137,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
 
     // Complete Advanced Settings Dialog Modal
     if (showAdvancedSettingsDialog) {
+        val haptic = LocalHapticFeedback.current
         val blockedCount by viewModel.blockedDomainsCount.collectAsState()
         val filterLevel by viewModel.filterLevel.collectAsState()
         val biometricsEnabled by viewModel.isBiometricsEnabled.collectAsState()
@@ -1135,141 +1148,465 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
             onDismissRequest = { showAdvancedSettingsDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFFE53935))
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = Color(0xFFE53935),
+                        modifier = Modifier.size(24.dp)
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Расширенные Настройки")
+                    Text("Расширенные Настройки", fontWeight = FontWeight.Bold, color = textPrimaryColor)
                 }
             },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Title info
-                    Text("РосБраузер v1.8.4 Сборка Chromium Rust-TLS", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = textSecondaryColor)
-                    
-                    // Segment 1: RKN sites filtering level selector
-                    Text("Уровень фильтрации запрещенных сайтов РКН:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    listOf("Слабая", "Рекомендуемая", "Максимальная", "Строгая").forEach { level ->
+                    // Header Status Info
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { viewModel.setFilterLevel(level, context) }
-                                .padding(vertical = 4.dp),
+                                .border(1.dp, glassBorder.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(
-                                selected = (filterLevel == level),
-                                onClick = { viewModel.setFilterLevel(level, context) }
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Column {
-                                Text(level, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = when (level) {
-                                        "Слабая" -> "Блокировка прямых доменов реестра"
-                                        "Рекомендуемая" -> "Умный обход зеркал РКН и прокси"
-                                        "Максимальная" -> "Умный обход + фильтрация слежки"
-                                        "Строгая" -> "Полная гос-проверка трафика по ГОСТ-сертификатам"
+                                    "РосБраузер v1.8.8 Сборка 'Лето'",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = textPrimaryColor
+                                )
+                                Text(
+                                    "Суверенное ядро: Chromium Rust-TLS",
+                                    fontSize = 10.sp,
+                                    color = textSecondaryColor
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFFE53935).copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text("РФ", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE53935))
+                            }
+                        }
+                    }
+
+                    // CATEGORY 1: SEARCH SELECT
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Search, null, tint = Color(0xFF1E88E5), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Поисковая Система", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = textPrimaryColor)
+                        }
+                        
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .border(1.dp, glassBorder.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val engines = listOf("RosPoisk", "Yandex", "Mail.ru", "Sputnik", "Google")
+                                Row(
+                                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    engines.forEach { engine ->
+                                        val isSel = (searchEnginePreset == engine)
+                                        Box(
+                                            modifier = Modifier
+                                                .background(
+                                                    if (isSel) Color(0xFF1E88E5) else Color.White.copy(alpha = 0.1f),
+                                                    RoundedCornerShape(8.dp)
+                                                )
+                                                .clickable { 
+                                                    viewModel.setSearchEnginePreset(engine, context)
+                                                    if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(
+                                                text = if(engine == "RosPoisk") "РосПоиск 🇷🇺" else engine,
+                                                color = if (isSel) Color.White else textPrimaryColor,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                Text(
+                                    text = when(searchEnginePreset) {
+                                        "RosPoisk" -> "РосПоиск: Суверенный шифрованный поиск, узел фильтрации следящих трекеров."
+                                        "Yandex" -> "Яндекс: Весь рунет, умные подсказки, новости Дзена и погода."
+                                        "Mail.ru" -> "Поиск Mail.ru: Быстрый поиск полезных ответов и развлечений."
+                                        "Sputnik" -> "Спутник: Доверенный государственный поиск безопасных веб-сайтов РФ."
+                                        "Google" -> "Google: Глобальный поиск, защищаемый TLS во время обмена трафиком."
                                         else -> ""
                                     },
                                     fontSize = 9.sp,
-                                    color = textSecondaryColor
+                                    color = textSecondaryColor,
+                                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                                 )
                             }
                         }
                     }
 
-                    HorizontalDivider()
-
-                    // Segment 2: Biometrics password unlocking setup
-                    Text("Встроенный менеджер паролей и Биометрия:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Использовать TouchID / FaceID", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Биометрическая разблокировка паролей", fontSize = 9.sp, color = textSecondaryColor)
+                    // CATEGORY 2: ANIMATIONS & VISUALS
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Palette, null, tint = Color(0xFF8E24AA), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Интерфейс и Анимация", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = textPrimaryColor)
                         }
-                        Switch(
-                            checked = biometricsEnabled,
-                            onCheckedChange = { viewModel.setBiometricsEnabled(it, context) }
-                        )
-                    }
 
-                    // Open Passwords
-                    Button(
-                        onClick = {
-                            showAdvancedSettingsDialog = false
-                            if (biometricsEnabled) {
-                                showBiometricUnlockDialog = true
-                            } else {
-                                showSavedPasswordsDialog = true
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5))
-                    ) {
-                        Icon(Icons.Default.VpnKey, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Управление паролями")
-                    }
-
-                    HorizontalDivider()
-
-                    // Segment 3: Sync & Profile Details
-                    Text("Синхронизация профиля:", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    if (inYandexMode) {
-                        Text("Профиль синхронизирован с Yandex ID ($usernameYandex)", fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
-                        Button(
-                            onClick = { viewModel.logOutYandex(context) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                            modifier = Modifier.fillMaxWidth()
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Выйти из Yandex ID")
+                            Column(
+                                modifier = Modifier
+                                    .border(1.dp, glassBorder.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Toggle Summer Animations
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Летний живой фон", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                                        Text("Анимированные облака, волны, чайки, солнце", fontSize = 8.sp, color = textSecondaryColor)
+                                    }
+                                    Switch(
+                                        checked = isSummerBgAnimEnabled,
+                                        onCheckedChange = { 
+                                            viewModel.setSummerBgAnimEnabled(it, context)
+                                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    )
+                                }
+
+                                HorizontalDivider(color = glassBorder.copy(alpha = 0.1f))
+
+                                // Slider Flag wave speed
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Скорость весеннего флага 🚩", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                                        Text(
+                                            text = when {
+                                                flagWaveSpeed <= 0.2f -> "Пауза"
+                                                flagWaveSpeed < 0.8f -> "Слабая (${String.format("%.1f", flagWaveSpeed)}x)"
+                                                flagWaveSpeed < 1.3f -> "Норма (${String.format("%.1f", flagWaveSpeed)}x)"
+                                                else -> "Лихая (${String.format("%.1f", flagWaveSpeed)}x)"
+                                            },
+                                            fontSize = 9.sp,
+                                            color = textSecondaryColor
+                                        )
+                                    }
+                                    Slider(
+                                        value = flagWaveSpeed,
+                                        onValueChange = { 
+                                            viewModel.setFlagWaveSpeed(it, context)
+                                        },
+                                        valueRange = 0.0f..2.0f,
+                                        steps = 4,
+                                        enabled = isSummerBgAnimEnabled
+                                    )
+                                }
+
+                                HorizontalDivider(color = glassBorder.copy(alpha = 0.1f))
+
+                                // Slider Font Size
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Масштаб шрифта меню", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                                        Text(
+                                            text = when {
+                                                fontSizeScale < 0.9f -> "Мелкий (0.8x)"
+                                                fontSizeScale < 1.1f -> "Обычный (1.0x)"
+                                                fontSizeScale < 1.3f -> "Крупный (1.2x)"
+                                                else -> "Огромный (1.4x)"
+                                            },
+                                            fontSize = 9.sp,
+                                            color = textSecondaryColor
+                                        )
+                                    }
+                                    Slider(
+                                        value = fontSizeScale,
+                                        onValueChange = { 
+                                            viewModel.setFontSizeScale(it, context)
+                                        },
+                                        valueRange = 0.8f..1.4f,
+                                        steps = 3
+                                    )
+                                    // Tester preview text
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color.Black.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                            .padding(6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "Демонстрация суверенного шрифта РФ",
+                                            fontSize = (10 * fontSizeScale).sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = textPrimaryColor
+                                        )
+                                    }
+                                }
+
+                                HorizontalDivider(color = glassBorder.copy(alpha = 0.1f))
+
+                                // Vibration Feedback
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Виброотклик кнопок", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                                        Text("Приятная тактильная отдача при нажатиях", fontSize = 8.sp, color = textSecondaryColor)
+                                    }
+                                    Switch(
+                                        checked = isHapticVibeEnabled,
+                                        onCheckedChange = { 
+                                            viewModel.setHapticVibeEnabled(it, context)
+                                            if (it) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    )
+                                }
+                            }
                         }
-                    } else {
-                        Text("Синхронизация в Рособлако временно неактивна. Войдите в Yandex ID на главном экране браузера.", fontSize = 10.sp)
                     }
 
-                    HorizontalDivider()
+                    // CATEGORY 3: SECURITY & PRIVACY
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Shield, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Безопасность и фильтрация РКН", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = textPrimaryColor)
+                        }
 
-                    // Segment 4: Wipe wave button
-                    Button(
-                        onClick = {
-                            viewModel.incrementBlockedCount()
-                            Toast.makeText(context, "Локальные сессии смыты волной! Сделано в РФ.", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Water, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Очистить все cookies волной 🌊")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .border(1.dp, glassBorder.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text("Уровень фильтрации неблагоприятных сайтов:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = textPrimaryColor)
+                                listOf("Слабая", "Рекомендуемая", "Максимальная", "Строгая").forEach { level ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { 
+                                                viewModel.setFilterLevel(level, context)
+                                                if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            }
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = (filterLevel == level),
+                                            onClick = { 
+                                                viewModel.setFilterLevel(level, context)
+                                                if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Column {
+                                            Text(level, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                                            Text(
+                                                text = when (level) {
+                                                    "Слабая" -> "Блокировка прямых доменов реестра"
+                                                    "Рекомендуемая" -> "Умный обход зеркал РКН и прокси"
+                                                    "Максимальная" -> "Умный обход + фильтрация слежки"
+                                                    "Строгая" -> "Полная гос-проверка трафика по ГОСТ-сертификатам"
+                                                    else -> ""
+                                                },
+                                                fontSize = 9.sp,
+                                                color = textSecondaryColor
+                                            )
+                                        }
+                                    }
+                                }
+
+                                HorizontalDivider(color = glassBorder.copy(alpha = 0.1f))
+
+                                // Biometrics
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Биометрия TouchID / FaceID", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                                        Text("Биометрическая разблокировка ваших паролей", fontSize = 8.sp, color = textSecondaryColor)
+                                    }
+                                    Switch(
+                                        checked = biometricsEnabled,
+                                        onCheckedChange = { 
+                                            viewModel.setBiometricsEnabled(it, context)
+                                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        showAdvancedSettingsDialog = false
+                                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        if (biometricsEnabled) {
+                                            showBiometricUnlockDialog = true
+                                        } else {
+                                            showSavedPasswordsDialog = true
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5))
+                                ) {
+                                    Icon(Icons.Default.VpnKey, null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Управление паролями", fontSize = 11.sp)
+                                }
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    // CATEGORY 4: SYNC & STORAGE
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Backup, null, tint = Color(0xFFFF9800), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Профиль и Облачное хранилище", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = textPrimaryColor)
+                        }
 
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .border(1.dp, glassBorder.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (inYandexMode) {
+                                    Text("Облачная репликация Yandex ID активна", fontSize = 10.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                                    Text("Данные пользователя ($usernameYandex) зашифрованы по TLS ГОСТ.", fontSize = 9.sp, color = textSecondaryColor)
+                                    Button(
+                                        onClick = { 
+                                            viewModel.logOutYandex(context)
+                                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Выйти из Yandex ID", fontSize = 11.sp)
+                                    }
+                                } else {
+                                    Text(
+                                        "Синхронизация временно отключена. Вы можете войти в облачный профиль Yandex на главном экране браузера.",
+                                        fontSize = 10.sp,
+                                        color = textSecondaryColor
+                                    )
+                                }
+
+                                HorizontalDivider(color = glassBorder.copy(alpha = 0.1f))
+
+                                // Clear cookies waves button
+                                Button(
+                                    onClick = {
+                                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.incrementBlockedCount()
+                                        Toast.makeText(context, "Локальные сессии смыты волной! Сделано в РФ.", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF546E7A)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.Water, null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Очистить cookies волной 🌊", fontSize = 11.sp)
+                                }
+
+                                // Reset states to factory settings
+                                Button(
+                                    onClick = {
+                                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.setSummerBgAnimEnabled(true, context)
+                                        viewModel.setFlagWaveSpeed(1.0f, context)
+                                        viewModel.setSearchEnginePreset("RosPoisk", context)
+                                        viewModel.setFontSizeScale(1.0f, context)
+                                        viewModel.setHapticVibeEnabled(true, context)
+                                        viewModel.setFilterLevel("Рекомендуемая", context)
+                                        Toast.makeText(context, "Настройки сброшены на заводские!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF607D8B)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Сбросить все в дефолт", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    // Donate button
                     Button(
                         onClick = {
+                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             showDonateAndPromoDialog = true
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
                         modifier = Modifier.fillMaxWidth().testTag("open_donate_dialog_button")
                     ) {
-                        Icon(Icons.Default.CardGiftcard, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.CardGiftcard, null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("💰 Донат-магазин и Промокоды")
+                        Text("💰 Донат-магазин и Промокоды", fontSize = 11.sp)
                     }
                 }
             },
             confirmButton = {
-                Button(onClick = { showAdvancedSettingsDialog = false }) {
+                Button(
+                    onClick = { 
+                        showAdvancedSettingsDialog = false 
+                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                ) {
                     Text("Готово")
                 }
-            }
+            },
+            containerColor = glassBg,
+            textContentColor = textPrimaryColor,
+            titleContentColor = textPrimaryColor
         )
     }
 

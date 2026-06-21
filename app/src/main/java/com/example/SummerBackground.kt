@@ -39,18 +39,25 @@ data class Insect(
 fun SummerBackground(
     mode: BrowserMode,
     modifier: Modifier = Modifier,
-    lowBatteryMode: Boolean = false
+    lowBatteryMode: Boolean = false,
+    isAnimEnabled: Boolean = true,
+    flagSpeedMultiplier: Float = 1.0f
 ) {
     val coroutineScope = rememberCoroutineScope()
     // Infinite transition for continuous smooth physical animations
     val infiniteTransition = rememberInfiniteTransition(label = "SummerLoop")
 
-    // Animated angle for slower/faster rotation (120s full circle for sun as requested, but let's do 60s for visible feedback!)
+    // Animated angle for slower/faster rotation
     val sunAngle by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (lowBatteryMode) 120000 else 60000, easing = LinearEasing),
+            animation = tween(
+                if (isAnimEnabled) {
+                    if (lowBatteryMode) 120000 else 60000
+                } else 100000000,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Restart
         ),
         label = "SunRotation"
@@ -61,7 +68,12 @@ fun SummerBackground(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (lowBatteryMode) 40000 else 25000, easing = LinearEasing),
+            animation = tween(
+                if (isAnimEnabled) {
+                    if (lowBatteryMode) 40000 else 25000
+                } else 100000000,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Restart
         ),
         label = "CloudDrift1"
@@ -71,7 +83,12 @@ fun SummerBackground(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (lowBatteryMode) 70000 else 45000, easing = LinearEasing),
+            animation = tween(
+                if (isAnimEnabled) {
+                    if (lowBatteryMode) 70000 else 45000
+                } else 100000000,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Restart
         ),
         label = "CloudDrift2"
@@ -81,7 +98,12 @@ fun SummerBackground(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (lowBatteryMode) 110000 else 75000, easing = LinearEasing),
+            animation = tween(
+                if (isAnimEnabled) {
+                    if (lowBatteryMode) 110000 else 75000
+                } else 100000000,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Restart
         ),
         label = "CloudDrift3"
@@ -92,7 +114,7 @@ fun SummerBackground(
         initialValue = 0f,
         targetValue = 2 * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(3500, easing = LinearEasing),
+            animation = tween(if (isAnimEnabled) 3500 else 10000000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "PoppySway"
@@ -103,7 +125,7 @@ fun SummerBackground(
         initialValue = 0.05f,
         targetValue = 0.15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = EaseInOutSine),
+            animation = tween(if (isAnimEnabled) 4000 else 10000000, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ),
         label = "HoloBlink"
@@ -114,7 +136,13 @@ fun SummerBackground(
         initialValue = 0f,
         targetValue = 2 * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(if (lowBatteryMode) 4500 else 2500, easing = LinearEasing),
+            animation = tween(
+                if (isAnimEnabled) {
+                    val baseSpeed = if (lowBatteryMode) 4500 else 2500
+                    (baseSpeed / maxOf(0.1f, flagSpeedMultiplier)).toInt()
+                } else 100000000,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Restart
         ),
         label = "FlagWaveAngle"
@@ -131,7 +159,8 @@ fun SummerBackground(
     }
 
     // Bug movement loop
-    LaunchedEffect(key1 = lowBatteryMode) {
+    LaunchedEffect(key1 = lowBatteryMode, key2 = isAnimEnabled) {
+        if (!isAnimEnabled) return@LaunchedEffect
         while (true) {
             val tickDelay = if (lowBatteryMode) 5000L else 2500L
             kotlinx.coroutines.delay(tickDelay)

@@ -166,6 +166,13 @@ class BrowserViewModel : ViewModel() {
         if (active != null) {
             switchProfile(active.id, context)
         }
+
+        // Load custom advanced settings
+        _isSummerBgAnimEnabled.value = persistence.loadSummerBgAnimEnabled()
+        _flagWaveSpeed.value = persistence.loadFlagWaveSpeed()
+        _searchEnginePreset.value = persistence.loadSearchEnginePreset()
+        _fontSizeScale.value = persistence.loadFontSizeScale()
+        _isHapticVibeEnabled.value = persistence.loadHapticVibeEnabled()
     }
 
     fun switchProfile(profileId: String, context: Context) {
@@ -307,7 +314,24 @@ class BrowserViewModel : ViewModel() {
 
         // Treat search if it does not look like a domain URL
         if (isSearchQuery(trimmed)) {
-            performRosPoisk(trimmed)
+            val engine = _searchEnginePreset.value
+            if (engine == "RosPoisk") {
+                performRosPoisk(trimmed)
+            } else {
+                try {
+                    val encoded = java.net.URLEncoder.encode(trimmed, "UTF-8")
+                    val targetSearchUrl = when (engine) {
+                        "Yandex" -> "https://yandex.ru/search/?text=$encoded"
+                        "Google" -> "https://www.google.com/search?q=$encoded"
+                        "Sputnik" -> "https://sputnik.ru/search?q=$encoded"
+                        "Mail.ru" -> "https://go.mail.ru/search?q=$encoded"
+                        else -> "https://yandex.ru/search/?text=$encoded"
+                    }
+                    _currentUrl.value = targetSearchUrl
+                } catch (e: Exception) {
+                    performRosPoisk(trimmed)
+                }
+            }
             return
         }
 
@@ -377,6 +401,22 @@ class BrowserViewModel : ViewModel() {
     private val _isPasswordManagerUnlocked = MutableStateFlow(false)
     val isPasswordManagerUnlocked = _isPasswordManagerUnlocked.asStateFlow()
 
+    // Dynamic Live Background Animations & Custom Settings Properties
+    private val _isSummerBgAnimEnabled = MutableStateFlow(true)
+    val isSummerBgAnimEnabled = _isSummerBgAnimEnabled.asStateFlow()
+
+    private val _flagWaveSpeed = MutableStateFlow(1.0f)
+    val flagWaveSpeed = _flagWaveSpeed.asStateFlow()
+
+    private val _searchEnginePreset = MutableStateFlow("RosPoisk")
+    val searchEnginePreset = _searchEnginePreset.asStateFlow()
+
+    private val _fontSizeScale = MutableStateFlow(1.0f)
+    val fontSizeScale = _fontSizeScale.asStateFlow()
+
+    private val _isHapticVibeEnabled = MutableStateFlow(true)
+    val isHapticVibeEnabled = _isHapticVibeEnabled.asStateFlow()
+
     private val _isLoggedInYandex = MutableStateFlow(false)
     val isLoggedInYandex = _isLoggedInYandex.asStateFlow()
 
@@ -433,6 +473,36 @@ class BrowserViewModel : ViewModel() {
 
     fun setRuAdListEnabled(enabled: Boolean) {
         _isRuAdListEnabled.value = enabled
+    }
+
+    fun setSummerBgAnimEnabled(enabled: Boolean, context: Context) {
+        _isSummerBgAnimEnabled.value = enabled
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        persistence.saveSummerBgAnimEnabled(enabled)
+    }
+
+    fun setFlagWaveSpeed(speed: Float, context: Context) {
+        _flagWaveSpeed.value = speed
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        persistence.saveFlagWaveSpeed(speed)
+    }
+
+    fun setSearchEnginePreset(preset: String, context: Context) {
+        _searchEnginePreset.value = preset
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        persistence.saveSearchEnginePreset(preset)
+    }
+
+    fun setFontSizeScale(scale: Float, context: Context) {
+        _fontSizeScale.value = scale
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        persistence.saveFontSizeScale(scale)
+    }
+
+    fun setHapticVibeEnabled(enabled: Boolean, context: Context) {
+        _isHapticVibeEnabled.value = enabled
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        persistence.saveHapticVibeEnabled(enabled)
     }
 
     fun incrementBlockedCount() {
