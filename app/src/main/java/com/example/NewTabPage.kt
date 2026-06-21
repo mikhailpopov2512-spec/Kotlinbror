@@ -28,6 +28,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -1069,9 +1070,28 @@ fun SeaPebbleShortcutTile(
                     else -> null
                 }
 
-                if (imageRes != null) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val painter = androidx.compose.runtime.remember(imageRes) {
+                    if (imageRes != null) {
+                        try {
+                            val bitmap = android.graphics.BitmapFactory.decodeResource(context.resources, imageRes)
+                            if (bitmap != null) {
+                                androidx.compose.ui.graphics.painter.BitmapPainter(bitmap.asImageBitmap())
+                            } else {
+                                null
+                            }
+                        } catch (e: Throwable) {
+                            e.printStackTrace()
+                            null
+                        }
+                    } else {
+                        null
+                    }
+                }
+
+                if (painter != null) {
                     androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(id = imageRes),
+                        painter = painter,
                         contentDescription = shortcut.title,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
