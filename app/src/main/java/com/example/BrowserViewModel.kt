@@ -187,7 +187,7 @@ class BrowserViewModel : ViewModel() {
         try {
             android.webkit.CookieManager.getInstance().removeAllCookies(null)
             android.webkit.CookieManager.getInstance().flush()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Safe fallback
         }
     }

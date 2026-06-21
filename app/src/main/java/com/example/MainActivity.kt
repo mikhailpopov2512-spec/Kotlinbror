@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
@@ -184,6 +185,10 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
         }
     }
 
+    BackHandler(enabled = currentUrl.isNotBlank()) {
+        backAction()
+    }
+
     // Glass style colors
     val glassBg = if (browserMode == BrowserMode.INCOGNITO) {
         Color(0xBA0F172A)
@@ -302,8 +307,9 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                             val profileInitials = currentProfile?.name?.take(2)?.uppercase() ?: "ПР"
                             val profileColorHex = currentProfile?.avatarColor ?: "FF1E88E5"
                             val profileColor = try {
-                                Color(android.graphics.Color.parseColor("#$profileColorHex"))
-                            } catch (e: Exception) {
+                                val hex = profileColorHex.trim().removePrefix("#")
+                                Color(android.graphics.Color.parseColor("#$hex"))
+                            } catch (e: Throwable) {
                                 Color(0xFF1E88E5)
                             }
 
@@ -1553,8 +1559,9 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                     profiles.forEach { profile ->
                         val isCurrent = currentProfile?.id == profile.id
                         val pColor = try {
-                            Color(android.graphics.Color.parseColor("#${profile.avatarColor}"))
-                        } catch (e: Exception) {
+                            val hex = profile.avatarColor.trim().removePrefix("#")
+                            Color(android.graphics.Color.parseColor("#$hex"))
+                        } catch (e: Throwable) {
                             Color(0xFF1E88E5)
                         }
 
@@ -1685,7 +1692,12 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     avatarColorsList.forEach { (colorHex, name) ->
-                                        val color = Color(android.graphics.Color.parseColor("#$colorHex"))
+                                        val color = try {
+                                             val hex = colorHex.trim().removePrefix("#")
+                                             Color(android.graphics.Color.parseColor("#$hex"))
+                                         } catch (e: Throwable) {
+                                             Color(0xFF1E88E5)
+                                         }
                                         val isSelected = selectedAvatarColor.value == colorHex
                                         Box(
                                             modifier = Modifier
