@@ -110,6 +110,150 @@ class BrowserViewModel : ViewModel() {
     private val _history = MutableStateFlow<List<String>>(emptyList())
     val history = _history.asStateFlow()
 
+    // Profile Management System
+    private val _isTrackerBlockingEnabled = MutableStateFlow(true)
+    val isTrackerBlockingEnabled = _isTrackerBlockingEnabled.asStateFlow()
+
+    private val _profiles = MutableStateFlow<List<UserProfile>>(emptyList())
+    val profiles = _profiles.asStateFlow()
+
+    private val _currentProfile = MutableStateFlow<UserProfile?>(null)
+    val currentProfile = _currentProfile.asStateFlow()
+
+    private var profilePersistence: UserProfilePersistence? = null
+
+    fun initPersistence(context: Context) {
+        if (profilePersistence != null) return
+        val persistence = UserProfilePersistence(context.applicationContext)
+        profilePersistence = persistence
+
+        var loaded = persistence.loadProfiles()
+        if (loaded.isEmpty()) {
+            loaded = listOf(
+                UserProfile(
+                    id = "sahalin",
+                    name = "Сахалин (Основной)",
+                    avatarColor = "#FF388E3C",
+                    shortcuts = defaultShortcutsList(),
+                    history = listOf("https://yandex.ru", "https://gosuslugi.ru"),
+                    filterLevel = "Рекомендуемая"
+                ),
+                UserProfile(
+                    id = "baikal",
+                    name = "Байкал (Рабочий)",
+                    avatarColor = "#FF1E88E5",
+                    shortcuts = defaultShortcutsList().filter { !it.isYandexService },
+                    history = listOf("https://gosuslugi.ru", "https://ru.ruwiki.ru"),
+                    filterLevel = "Максимальная"
+                ),
+                UserProfile(
+                    id = "altai",
+                    name = "Алтай (Семейный)",
+                    avatarColor = "#FFD84315",
+                    shortcuts = defaultShortcutsList().take(4),
+                    history = listOf("https://rustore.ru"),
+                    filterLevel = "Строгая"
+                )
+            )
+            persistence.saveProfiles(loaded)
+        }
+
+        _profiles.value = loaded
+        val activeId = persistence.loadActiveProfileId() ?: "sahalin"
+        val active = loaded.find { it.id == activeId } ?: loaded.first()
+        switchProfile(active.id, context)
+    }
+
+    fun switchProfile(profileId: String, context: Context) {
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        persistence.saveActiveProfileId(profileId)
+        val target = _profiles.value.find { it.id == profileId } ?: _profiles.value.firstOrNull() ?: return
+
+        _currentProfile.value = target
+
+        // Restore target states to VM flows
+        _history.value = target.history
+        _shortcuts.value = target.shortcuts
+        _filterLevel.value = target.filterLevel
+        _isAdBlockActive.value = target.isAdBlockActive
+        _isTrackerBlockingEnabled.value = target.isTrackerBlockingEnabled
+        _isLoggedInYandex.value = target.isLoggedInYandex
+        _yandexUsername.value = target.yandexUsername
+        _browserMode.value = target.browserMode
+
+        // Partition simulation: clean up web cookies on switch
+        try {
+            android.webkit.CookieManager.getInstance().removeAllCookies(null)
+            android.webkit.CookieManager.getInstance().flush()
+        } catch (e: Exception) {
+            // Safe fallback
+        }
+    }
+
+    fun saveCurrentProfileState(context: Context) {
+        val current = _currentProfile.value ?: return
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        val updated = current.copy(
+            history = _history.value,
+            shortcuts = _shortcuts.value,
+            filterLevel = _filterLevel.value,
+            isAdBlockActive = _isAdBlockActive.value,
+            isTrackerBlockingEnabled = _isTrackerBlockingEnabled.value,
+            isLoggedInYandex = _isLoggedInYandex.value,
+            yandexUsername = _yandexUsername.value,
+            browserMode = _browserMode.value
+        )
+        _currentProfile.value = updated
+        val list = _profiles.value.map { p -> if (p.id == updated.id) updated else p }
+        _profiles.value = list
+        persistence.saveProfiles(list)
+    }
+
+    fun createProfile(name: String, avatarColor: String, context: Context) {
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        val newProfile = UserProfile(
+            id = "profile_" + System.currentTimeMillis(),
+            name = name,
+            avatarColor = avatarColor,
+            shortcuts = defaultShortcutsList(),
+            history = listOf("https://yandex.ru"),
+            filterLevel = "Рекомендуемая"
+        )
+        val newList = _profiles.value + newProfile
+        _profiles.value = newList
+        persistence.saveProfiles(newList)
+        switchProfile(newProfile.id, context)
+    }
+
+    fun deleteProfile(profileId: String, context: Context) {
+        if (_profiles.value.size <= 1) return
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        val newList = _profiles.value.filter { it.id != profileId }
+        _profiles.value = newList
+        persistence.saveProfiles(newList)
+        if (_currentProfile.value?.id == profileId) {
+            switchProfile(newList.first().id, context)
+        }
+    }
+
+    fun setTrackerBlockingEnabled(enabled: Boolean, context: Context) {
+        _isTrackerBlockingEnabled.value = enabled
+        saveCurrentProfileState(context)
+    }
+
+    fun defaultShortcutsList(): List<PebbleShortcut> {
+        return listOf(
+            PebbleShortcut("ya", "Яндекс", "https://yandex.ru", isYandexService = true),
+            PebbleShortcut("gu", "Госуслуги", "https://gosuslugi.ru"),
+            PebbleShortcut("ru", "RuStore", "https://rustore.ru"),
+            PebbleShortcut("vk", "ВКонтакте", "https://vk.com"),
+            PebbleShortcut("ya-map", "Яндекс.Карты", "https://yandex.ru/maps", isYandexService = true),
+            PebbleShortcut("ya-music", "Яндекс.Музыка", "https://music.yandex.ru", isYandexService = true),
+            PebbleShortcut("ya-market", "Яндекс.Маркет", "https://market.yandex.ru", isYandexService = true),
+            PebbleShortcut("wiki", "Рувики", "https://ru.ruwiki.ru")
+        )
+    }
+
     init {
         resetShortcuts()
         loadDefaultDzenFeed()
@@ -234,33 +378,38 @@ class BrowserViewModel : ViewModel() {
     val isRuAdListEnabled = _isRuAdListEnabled.asStateFlow()
 
     // Setter and toggle functions
-    fun setFilterLevel(level: String) {
+    fun setFilterLevel(level: String, context: Context) {
         _filterLevel.value = level
+        saveCurrentProfileState(context)
     }
 
-    fun setBiometricsEnabled(enabled: Boolean) {
+    fun setBiometricsEnabled(enabled: Boolean, context: Context) {
         _isBiometricsEnabled.value = enabled
         if (!enabled) _isPasswordManagerUnlocked.value = false
+        saveCurrentProfileState(context)
     }
 
     fun setPasswordManagerUnlocked(unlocked: Boolean) {
         _isPasswordManagerUnlocked.value = unlocked
     }
 
-    fun logInYandex(username: String) {
+    fun logInYandex(username: String, context: Context) {
         if (username.isNotBlank()) {
             _yandexUsername.value = username
             _isLoggedInYandex.value = true
+            saveCurrentProfileState(context)
         }
     }
 
-    fun logOutYandex() {
+    fun logOutYandex(context: Context) {
         _yandexUsername.value = ""
         _isLoggedInYandex.value = false
+        saveCurrentProfileState(context)
     }
 
-    fun setAdBlockActive(active: Boolean) {
+    fun setAdBlockActive(active: Boolean, context: Context) {
         _isAdBlockActive.value = active
+        saveCurrentProfileState(context)
     }
 
     fun setEasyListRussiaEnabled(enabled: Boolean) {
@@ -279,12 +428,23 @@ class BrowserViewModel : ViewModel() {
     fun isBlocklisted(url: String): Boolean {
         val cleanUrl = url.lowercase()
         val level = _filterLevel.value
+        
+        val trackers = if (_isTrackerBlockingEnabled.value) {
+            listOf(
+                "google-analytics.com", "doubleclick.net", "yandex-metrika.ru", 
+                "analytics.google.com", "metric-track.ru", "mc.yandex.ru", 
+                "telemetry", "tracking", "ads-tracker", "spyware"
+            )
+        } else {
+            emptyList()
+        }
+
         val targets = when (level) {
-            "Слабая" -> listOf("blocked.ru", "rkn-ban.com")
-            "Рекомендуемая" -> blocklistedDomains
-            "Максимальная" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru")
-            "Строгая" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru", "untrusted-proxy.net", "malicious-spyware.ru", "adware-network.com")
-            else -> blocklistedDomains
+            "Слабая" -> listOf("blocked.ru", "rkn-ban.com") + trackers
+            "Рекомендуемая" -> blocklistedDomains + trackers
+            "Максимальная" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru") + trackers
+            "Строгая" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru", "untrusted-proxy.net", "malicious-spyware.ru", "adware-network.com") + trackers
+            else -> blocklistedDomains + trackers
         }
         val blocked = targets.any { cleanUrl.contains(it) }
         if (blocked) {
@@ -334,20 +494,22 @@ class BrowserViewModel : ViewModel() {
     }
 
     // Sea Pebbles Action
-    fun addShortcut(title: String, url: String) {
+    fun addShortcut(title: String, url: String, context: Context) {
         val newShort = PebbleShortcut(
             id = System.currentTimeMillis().toString(),
             title = title,
             url = url
         )
         _shortcuts.update { it + newShort }
+        saveCurrentProfileState(context)
     }
 
-    fun deleteShortcut(id: String) {
+    fun deleteShortcut(id: String, context: Context) {
         _shortcuts.update { list -> list.filter { it.id != id } }
+        saveCurrentProfileState(context)
     }
 
-    fun resetShortcuts() {
+    fun resetShortcuts(context: Context? = null) {
         _shortcuts.value = listOf(
             PebbleShortcut("ya", "Яндекс", "https://yandex.ru", isYandexService = true),
             PebbleShortcut("gu", "Госуслуги", "https://gosuslugi.ru"),
@@ -358,6 +520,7 @@ class BrowserViewModel : ViewModel() {
             PebbleShortcut("ya-market", "Яндекс.Маркет", "https://market.yandex.ru", isYandexService = true),
             PebbleShortcut("wiki", "Рувики", "https://ru.ruwiki.ru")
         )
+        context?.let { saveCurrentProfileState(it) }
     }
 
     // RosPoisk executing

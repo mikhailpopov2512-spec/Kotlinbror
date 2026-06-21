@@ -1083,13 +1083,13 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { viewModel.setFilterLevel(level) }
+                                .clickable { viewModel.setFilterLevel(level, context) }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
                                 selected = (filterLevel == level),
-                                onClick = { viewModel.setFilterLevel(level) }
+                                onClick = { viewModel.setFilterLevel(level, context) }
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Column {
@@ -1124,7 +1124,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                         }
                         Switch(
                             checked = biometricsEnabled,
-                            onCheckedChange = { viewModel.setBiometricsEnabled(it) }
+                            onCheckedChange = { viewModel.setBiometricsEnabled(it, context) }
                         )
                     }
 
@@ -1153,7 +1153,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                     if (inYandexMode) {
                         Text("Профиль синхронизирован с Yandex ID ($usernameYandex)", fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
                         Button(
-                            onClick = { viewModel.logOutYandex() },
+                            onClick = { viewModel.logOutYandex(context) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
                             modifier = Modifier.fillMaxWidth()
                         ) {

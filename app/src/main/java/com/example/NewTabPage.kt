@@ -65,6 +65,7 @@ fun NewTabPage(
     val filterLevel by viewModel.filterLevel.collectAsState()
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showAddDialog by remember { mutableStateOf(false) }
     var newTitle by remember { mutableStateOf("") }
     var newUrl by remember { mutableStateOf("") }
@@ -328,7 +329,7 @@ fun NewTabPage(
                                     SeaPebbleShortcutTile(
                                         shortcut = shortcut,
                                         onNavigate = onNavigate,
-                                        onDelete = { viewModel.deleteShortcut(shortcut.id) }
+                                        onDelete = { viewModel.deleteShortcut(shortcut.id, context) }
                                     )
                                 }
                             }
@@ -507,7 +508,7 @@ fun NewTabPage(
                             if (!target.startsWith("http://") && !target.startsWith("https://")) {
                                 target = "https://$target"
                             }
-                            viewModel.addShortcut(newTitle.trim(), target.trim())
+                            viewModel.addShortcut(newTitle.trim(), target.trim(), context)
                             newTitle = ""
                             newUrl = ""
                             showAddDialog = false
