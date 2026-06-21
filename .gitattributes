@@ -1,0 +1,15 @@
+# Set default behavior to automatic text/binary detection
+* text=auto
+
+# Force Unix line endings for gradlew bash script
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+
+# Define binary files to prevent corruption from line ending conversion
+*.jar binary
+*.keystore binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary

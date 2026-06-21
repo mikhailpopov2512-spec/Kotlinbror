@@ -87,6 +87,9 @@ jobs:
             # Fall back to using the debug keystore as a placeholder to allow building without failing configuration
             if [ -f debug.keystore ]; then
               cp debug.keystore my-upload-key.jks
+            elif [ -f debug.keystore.base64 ]; then
+              echo "Decoding debug.keystore.base64 as a fallback release keystore..."
+              cat debug.keystore.base64 | base64 --decode > my-upload-key.jks
             fi
           fi
 
