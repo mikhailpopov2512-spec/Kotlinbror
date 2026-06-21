@@ -49,6 +49,7 @@ import kotlin.math.sin
 fun NewTabPage(
     viewModel: BrowserViewModel,
     modifier: Modifier = Modifier,
+    onOpenSecuritySettings: () -> Unit = {},
     onNavigate: (String) -> Unit
 ) {
     val shortcuts by viewModel.shortcuts.collectAsState()
@@ -280,6 +281,7 @@ fun NewTabPage(
                         textSecondaryColor = textSecondaryColor,
                         onClick = {
                             showDialogFeedback = "Защита РосБраузера активна! Уровень фильтрации Роскомнадзора настроен на режим: $filterLevel. Обнаружено и обезврежено рекламных банеров и вредоносных угроз: $blockedCount."
+                            onOpenSecuritySettings()
                         }
                     )
                 }
@@ -1055,10 +1057,26 @@ fun SeaPebbleShortcutTile(
                 modifier = Modifier
                     .size(42.dp)
                     .background(Color.White.copy(alpha = 0.35f), CircleShape)
-                    .border(1f.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                    .border(1f.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+                    .clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (shortcut.isYandexService) {
+                val imageRes = when {
+                    shortcut.url.contains("yandex.ru") -> R.drawable.img_shortcut_yandex_1782028118694
+                    shortcut.url.contains("gosuslugi.ru") -> R.drawable.img_gosuslugi_pebble_1781961477713
+                    shortcut.url.contains("vk.com") -> R.drawable.img_vk_pebble_1781961462500
+                    shortcut.url.contains("rustore.ru") || shortcut.url.contains("market.yandex.ru") -> R.drawable.img_sber_pebble_1781961492341
+                    else -> null
+                }
+
+                if (imageRes != null) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = imageRes),
+                        contentDescription = shortcut.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else if (shortcut.isYandexService) {
                     // Quick red Yandex letter branding
                     Text(
                         text = "Я",

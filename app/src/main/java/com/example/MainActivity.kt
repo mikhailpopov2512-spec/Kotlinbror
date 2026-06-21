@@ -148,6 +148,13 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
     var showAppLoginLockScreen by remember { mutableStateOf(true) } // PIN lock at boot
     var enteredPinCode by remember { mutableStateOf("") }
     var isNotificationPermissionGranted by remember { mutableStateOf(false) }
+    var showSecuritySettingsDialog by remember { mutableStateOf(false) }
+    var showProfileManagerDialog by remember { mutableStateOf(false) }
+
+    // Initialize profile persistence at launch
+    LaunchedEffect(Unit) {
+        viewModel.initPersistence(context)
+    }
 
     // Loop for FSB custom compliance periodic notification
     LaunchedEffect(isNotificationPermissionGranted) {
@@ -283,11 +290,39 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                             }
                         }
 
-                        // Rightside: Battery Optimizer badge & Yandex sync login
+                        // Rightside: Profiles, Battery, Yandex ID Sync
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
+                            // Quick Profile Selector Badge
+                            val currentProfile by viewModel.currentProfile.collectAsState()
+                            val profiles by viewModel.profiles.collectAsState()
+                            
+                            val profileInitials = currentProfile?.name?.take(2)?.uppercase() ?: "ПР"
+                            val profileColorHex = currentProfile?.avatarColor ?: "FF1E88E5"
+                            val profileColor = try {
+                                Color(android.graphics.Color.parseColor("#$profileColorHex"))
+                            } catch (e: Exception) {
+                                Color(0xFF1E88E5)
+                            }
+
+                            IconButton(
+                                onClick = { showProfileManagerDialog = true },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(profileColor.copy(alpha = 0.25f), CircleShape)
+                                    .border(1.dp, profileColor, CircleShape)
+                                    .testTag("profile_badge_button")
+                            ) {
+                                Text(
+                                    text = profileInitials,
+                                    color = textPrimaryColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
                             // Low Battery indicator indicator
                             IconButton(
                                 onClick = { manualPowerSaveToggle = !manualPowerSaveToggle },
@@ -358,6 +393,9 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                         // Show beautiful Summer New Tab Page
                         NewTabPage(
                             viewModel = viewModel,
+                            onOpenSecuritySettings = {
+                                showSecuritySettingsDialog = true
+                            },
                             onNavigate = { target ->
                                 addressTextInput = target
                                 viewModel.setUrl(target)
@@ -574,9 +612,13 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                     Spacer(modifier = Modifier.width(4.dp))
                 }
 
-                // Security Shield Lock Icon with MicroWaves (as requested)
+                // Security Shield Lock Icon with MicroWaves (as requested) (Clickable to open security settings panel)
                 Box(
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .clickable { showSecuritySettingsDialog = true }
+                        .testTag("security_shield_icon_button"),
                     contentAlignment = Alignment.Center
                 ) {
                     // Micro waves drawings around shield
@@ -1317,6 +1359,388 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                     Text("Понятно")
                 }
             }
+        )
+    }
+
+    // Interactive Dialog 4: RosBrowser Security Center (Центр Безопасности РосБраузер)
+    if (showSecuritySettingsDialog) {
+        val blockedCount by viewModel.blockedDomainsCount.collectAsState()
+        val filterLevel by viewModel.filterLevel.collectAsState()
+        val trackerBlockingEnabled by viewModel.isTrackerBlockingEnabled.collectAsState()
+
+        AlertDialog(
+            onDismissRequest = { showSecuritySettingsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = if (trackerBlockingEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Центр Безопасности", fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Safety check status with a pulsing effect
+                    Card(
+                        modifier = Modifier.fillMaxWidth().border(1.dp, glassBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = glassBg.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val infinitePulse = rememberInfiniteTransition(label = "CheckPulse")
+                                val checkScale by infinitePulse.animateFloat(
+                                    initialValue = 0.8f,
+                                    targetValue = 1.2f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(1000, easing = EaseInOutSine),
+                                        repeatMode = RepeatMode.Reverse
+                                    ),
+                                    label = "CheckWave"
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .graphicsLayer {
+                                            scaleX = checkScale
+                                            scaleY = checkScale
+                                        }
+                                        .background(if (trackerBlockingEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (trackerBlockingEnabled) "Защита АКТИВНА" else "Защита Ослаблена",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (trackerBlockingEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Интеллектуальная фильтрация угроз защищает вас от вредоносных скриптов, жучков, шпионов и несанкционированного слежения.",
+                                fontSize = 11.sp,
+                                color = textSecondaryColor
+                            )
+                        }
+                    }
+
+                    // Connection Security
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFF4CAF50),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("Шифрование ГОСТ TLS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                            Text("Все шлюзы зашифрованы по отечественным ГОСТ правилам.", fontSize = 9.sp, color = textSecondaryColor)
+                        }
+                    }
+
+                    HorizontalDivider(color = glassBorder.copy(alpha = 0.3f))
+
+                    // Tracker Blocking switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Блокировка трекеров", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                            Text("Останавливать рекламные счетчики, веб-маяки и слежку", fontSize = 9.sp, color = textSecondaryColor)
+                        }
+                        Switch(
+                            checked = trackerBlockingEnabled,
+                            onCheckedChange = { viewModel.setTrackerBlockingEnabled(it, context) },
+                            modifier = Modifier.testTag("tracker_blocking_switch")
+                        )
+                    }
+
+                    // Block stats
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                            .border(0.5.dp, glassBorder.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.BugReport, contentDescription = null, tint = textSecondaryColor)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Заблокировано опасных элементов: $blockedCount",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textPrimaryColor
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            Toast.makeText(context, "Инициирована принудительная гос-проверка безопасности. Узел чист.", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Верифицировать SSL/ГОСТ сертификат", fontSize = 11.sp, color = Color(0xFF1E88E5))
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showSecuritySettingsDialog = false }
+                ) {
+                    Text("Готово")
+                }
+            },
+            containerColor = glassBg,
+            textContentColor = textPrimaryColor,
+            titleContentColor = textPrimaryColor
+        )
+    }
+
+    // Interactive Dialog 5: RosBrowser Profile Management System (Управление Профилями)
+    if (showProfileManagerDialog) {
+        val profiles by viewModel.profiles.collectAsState()
+        val currentProfile by viewModel.currentProfile.collectAsState()
+        var showCreateProfileSection by remember { mutableStateOf(false) }
+        var newProfileName by remember { mutableStateOf("") }
+        val avatarColorsList = listOf(
+            "FF1E88E5" to "Синий",
+            "FFF44336" to "Красный",
+            "FF4CAF50" to "Зеленый",
+            "FFFF9800" to "Оранжевый",
+            "FF9C27B0" to "Фиолетовый"
+        )
+        val selectedAvatarColor = remember { mutableStateOf(avatarColorsList[0].first) }
+
+        AlertDialog(
+            onDismissRequest = { showProfileManagerDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBox,
+                        contentDescription = null,
+                        tint = Color(0xFF1E88E5),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Профили Пользователей", fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Профили позволяют изолировать историю, закладки (табло), настройки, адблок и куки-файлы сессий как на компьютере.",
+                        fontSize = 11.sp,
+                        color = textSecondaryColor
+                    )
+
+                    // Profile List
+                    profiles.forEach { profile ->
+                        val isCurrent = currentProfile?.id == profile.id
+                        val pColor = try {
+                            Color(android.graphics.Color.parseColor("#${profile.avatarColor}"))
+                        } catch (e: Exception) {
+                            Color(0xFF1E88E5)
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.switchProfile(profile.id, context)
+                                    showProfileManagerDialog = false
+                                    Toast.makeText(context, "Переключено на профиль: ${profile.name}", Toast.LENGTH_SHORT).show()
+                                }
+                                .border(
+                                    if (isCurrent) 1.5.dp else 0.5.dp,
+                                    if (isCurrent) pColor else glassBorder.copy(alpha = 0.3f),
+                                    RoundedCornerShape(12.dp)
+                                ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isCurrent) pColor.copy(alpha = 0.15f) else glassBg.copy(alpha = 0.4f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Colored profile avatar circle
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .background(pColor, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = profile.name.take(1).uppercase(),
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = profile.name,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textPrimaryColor
+                                        )
+                                        Text(
+                                            text = "Рябь: Находок ${profile.shortcuts.size} • Фильтр: ${profile.filterLevel}",
+                                            fontSize = 9.sp,
+                                            color = textSecondaryColor
+                                        )
+                                    }
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isCurrent) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Active",
+                                            tint = Color(0xFF4CAF50),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    } else if (profile.id.startsWith("profile_")) {
+                                        // Can delete custom profiles
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.deleteProfile(profile.id, context)
+                                                Toast.makeText(context, "Профиль удален", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.size(24.dp).testTag("delete_profile_button")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Удалить профиль",
+                                                tint = Color(0xFFF44336),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = glassBorder.copy(alpha = 0.3f))
+
+                    // Create Profile Action Toggle
+                    if (!showCreateProfileSection) {
+                        Button(
+                            onClick = { showCreateProfileSection = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5))
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Создать новый профиль")
+                        }
+                    } else {
+                        // Profile creation form
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, glassBorder.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = glassBg.copy(alpha = 0.25f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Новая Личность", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = textPrimaryColor)
+                                
+                                OutlinedTextField(
+                                    value = newProfileName,
+                                    onValueChange = { newProfileName = it },
+                                    label = { Text("Имя профиля") },
+                                    modifier = Modifier.fillMaxWidth().testTag("profile_name_input"),
+                                    singleLine = true
+                                )
+
+                                Text("Цвет ярлыка:", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = textSecondaryColor)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    avatarColorsList.forEach { (colorHex, name) ->
+                                        val color = Color(android.graphics.Color.parseColor("#$colorHex"))
+                                        val isSelected = selectedAvatarColor.value == colorHex
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .background(color, CircleShape)
+                                                .border(
+                                                    if (isSelected) 2.dp else 0.dp,
+                                                    if (isSelected) textPrimaryColor else Color.Transparent,
+                                                    CircleShape
+                                                )
+                                                .clickable { selectedAvatarColor.value = colorHex }
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = { showCreateProfileSection = false },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("Отмена")
+                                    }
+                                    Button(
+                                        onClick = {
+                                            if (newProfileName.isNotBlank()) {
+                                                viewModel.createProfile(newProfileName.trim(), selectedAvatarColor.value, context)
+                                                newProfileName = ""
+                                                showCreateProfileSection = false
+                                                Toast.makeText(context, "Профиль создан!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Пожалуйста, введите имя профиля", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1.2f).testTag("save_profile_button"),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                                    ) {
+                                        Text("Сохранить")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showProfileManagerDialog = false }) {
+                    Text("Закрыть")
+                }
+            },
+            containerColor = glassBg,
+            textContentColor = textPrimaryColor,
+            titleContentColor = textPrimaryColor
         )
     }
 }

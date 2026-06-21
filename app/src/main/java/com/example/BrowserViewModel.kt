@@ -121,8 +121,10 @@ class BrowserViewModel : ViewModel() {
     val currentProfile = _currentProfile.asStateFlow()
 
     private var profilePersistence: UserProfilePersistence? = null
+    private var appContext: Context? = null
 
     fun initPersistence(context: Context) {
+        appContext = context.applicationContext
         if (profilePersistence != null) return
         val persistence = UserProfilePersistence(context.applicationContext)
         profilePersistence = persistence
@@ -207,6 +209,11 @@ class BrowserViewModel : ViewModel() {
         val list = _profiles.value.map { p -> if (p.id == updated.id) updated else p }
         _profiles.value = list
         persistence.saveProfiles(list)
+    }
+
+    fun saveCurrentProfileState() {
+        val context = appContext ?: return
+        saveCurrentProfileState(context)
     }
 
     fun createProfile(name: String, avatarColor: String, context: Context) {
@@ -309,6 +316,7 @@ class BrowserViewModel : ViewModel() {
         if (_browserMode.value != BrowserMode.INCOGNITO && _browserMode.value != BrowserMode.STEALTH && _browserMode.value != BrowserMode.GUEST) {
             if (!_history.value.contains(finalUrl)) {
                 _history.update { (listOf(finalUrl) + it).take(15) }
+                saveCurrentProfileState()
             }
         }
     }
@@ -324,6 +332,7 @@ class BrowserViewModel : ViewModel() {
             // Tempest profile: washed by waves
             resetShortcuts()
         }
+        saveCurrentProfileState()
     }
 
     fun updateSearchQuery(query: String) {
