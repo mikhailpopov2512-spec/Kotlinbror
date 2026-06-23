@@ -103,6 +103,26 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            val browserViewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+            browserViewModel.saveAllDataCompletely(this)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        try {
+            val browserViewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+            browserViewModel.saveAllDataCompletely(this)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -447,6 +467,17 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                     currentUrl == "chrome-native://market" -> {
                         // Custom RosMarket store
                         RosMarketPage(
+                            viewModel = viewModel,
+                            onBack = {
+                                addressTextInput = ""
+                                viewModel.setUrl("")
+                            }
+                        )
+                    }
+
+                    currentUrl == "chrome-native://admin" -> {
+                        // New Admin Panel Page with 40 interactive features
+                        RosAdminPanelPage(
                             viewModel = viewModel,
                             onBack = {
                                 addressTextInput = ""
@@ -2201,7 +2232,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            "ПАНЕЛЬ АДМИНИСТРАТОРА v1.8",
+                                            "ПАНЕЛЬ АДМИНИСТРАТОРА v2.0",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = Color(0xFF00FF66)
@@ -2216,34 +2247,21 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                                 }
 
                                 Text(
-                                    "Вы зашли под секретной служебной ролью Госаппарата. Спецнастройки активны.",
+                                    "Вы зашли под секретной служебной ролью Госаппарата. Полный доступ к 40 инструментам активен.",
                                     fontSize = 9.sp,
                                     color = Color.LightGray
                                 )
 
-                                // Action 1: Add large balance
+                                // Action 1: Launcher
                                 Button(
                                     onClick = {
-                                        viewModel.addBalance(10000)
-                                        Toast.makeText(context, "Начислено секретной субсидией +10 000 рублей!", Toast.LENGTH_SHORT).show()
+                                        showDonateAndPromoDialog = false
+                                        viewModel.setUrl("chrome-native://admin")
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF66)),
-                                    modifier = Modifier.fillMaxWidth().height(34.dp)
+                                    modifier = Modifier.fillMaxWidth().height(36.dp)
                                 ) {
-                                    Text("Начислить +10,000 руб 💸", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Bold)
-                                }
-
-                                // Action 2: Stealth invisible FSB Mode
-                                Button(
-                                    onClick = {
-                                        // Switch active profile to Stealth browser mode instantly
-                                        viewModel.switchProfile(currentProfile?.id ?: "default", context)
-                                        Toast.makeText(context, "ВНИМАНИЕ: Стелс-режим ФСБ принудительно запущен!", Toast.LENGTH_SHORT).show()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Blue),
-                                    modifier = Modifier.fillMaxWidth().height(34.dp)
-                                ) {
-                                    Text("Запустить Стелс-режим ФСБ 🕵️‍♂️", fontSize = 11.sp, color = Color.White)
+                                    Text("ОТКРЫТЬ 40 СУВЕРЕННЫХ НАСТРОЕК ⚙️", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

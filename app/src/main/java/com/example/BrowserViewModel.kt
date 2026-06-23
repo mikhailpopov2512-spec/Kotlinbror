@@ -184,6 +184,9 @@ class BrowserViewModel : ViewModel() {
         if (purchasedSaved != null) {
             _purchasedItems.value = purchasedSaved.toList()
         }
+
+        // Load 40 Custom Admin Settings
+        loadAdminSettings(context)
     }
 
     fun switchProfile(profileId: String, context: Context) {
@@ -305,6 +308,10 @@ class BrowserViewModel : ViewModel() {
         val lower = trimmed.lowercase()
         if (lower == "rosmarket" || lower == "market" || lower == "chrome-native://market" || lower == "market://") {
             _currentUrl.value = "chrome-native://market"
+            return
+        }
+        if (lower == "admin" || lower == "chrome-native://admin" || lower == "about:admin" || lower == "control") {
+            _currentUrl.value = "chrome-native://admin"
             return
         }
 
@@ -824,6 +831,105 @@ class BrowserViewModel : ViewModel() {
 
     fun setAdminStatus(enabled: Boolean) {
         _isAdminEnabled.value = enabled
+        appContext?.let { ctx ->
+            val p = ctx.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE)
+            p.edit().putBoolean("is_admin_enabled", enabled).apply()
+        }
+    }
+
+    // 40 Working Admin Features states
+    private val _adminToggles = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val adminToggles = _adminToggles.asStateFlow()
+
+    private val _adminFloats = MutableStateFlow<Map<String, Float>>(emptyMap())
+    val adminFloats = _adminFloats.asStateFlow()
+
+    private val _adminTexts = MutableStateFlow<Map<String, String>>(emptyMap())
+    val adminTexts = _adminTexts.asStateFlow()
+
+    fun setAdminToggle(key: String, value: Boolean) {
+        _adminToggles.update { it + (key to value) }
+        appContext?.let { ctx ->
+            val p = ctx.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE)
+            p.edit().putBoolean(key, value).apply()
+        }
+    }
+
+    fun setAdminFloat(key: String, value: Float) {
+        _adminFloats.update { it + (key to value) }
+        appContext?.let { ctx ->
+            val p = ctx.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE)
+            p.edit().putFloat(key, value).apply()
+        }
+    }
+
+    fun setAdminText(key: String, value: String) {
+        _adminTexts.update { it + (key to value) }
+        appContext?.let { ctx ->
+            val p = ctx.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE)
+            p.edit().putString(key, value).apply()
+        }
+    }
+
+    fun loadAdminSettings(context: Context) {
+        val p = context.applicationContext.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE)
+        val togglesMap = mutableMapOf<String, Boolean>()
+        val floatsMap = mutableMapOf<String, Float>()
+        val textsMap = mutableMapOf<String, String>()
+
+        val toggleKeys = listOf(
+            "admin_fsb_agent_mode", "admin_gost_encryption", "admin_only_gov_resources",
+            "admin_auto_hist_clean", "admin_tracker_blocker_promax", "admin_rusification_active",
+            "admin_rkn_certificate_check", "admin_anti_screenshot", "admin_local_encryption",
+            "admin_infinite_shells", "admin_click_multiplier_100", "admin_crab_invincible",
+            "admin_game_speed_05", "admin_high_yield_seeds", "admin_unlimited_lives_runner",
+            "admin_unlock_detective_clues", "admin_instant_sea_level", "admin_extreme_blur",
+            "admin_solar_radiation_pro", "admin_pond_density_120", "admin_force_dark_mode",
+            "admin_audio_sea_seagulls", "admin_dynamic_neon_glow", "admin_parallax_background",
+            "admin_traffic_debug_log", "admin_force_battery_saver", "admin_max_tabs_100",
+            "admin_auto_correct_typos", "admin_speed_cache_ram", "admin_sovereign_dns",
+            "admin_custom_region_sochi", "admin_debug_fps_counter", "admin_unlimit_promo_uses"
+        )
+        toggleKeys.forEach { key ->
+            togglesMap[key] = p.getBoolean(key, false)
+        }
+
+        p.all.forEach { (k, v) ->
+            if (v is Float) {
+                floatsMap[k] = v
+            } else if (v is String) {
+                textsMap[k] = v
+            }
+        }
+
+        _adminToggles.value = togglesMap
+        _adminFloats.value = floatsMap
+        _adminTexts.value = textsMap
+        _isAdminEnabled.value = p.getBoolean("is_admin_enabled", false)
+    }
+
+    fun saveAllDataCompletely(context: Context) {
+        val ctx = context.applicationContext
+        
+        // save profiles
+        profilePersistence?.saveProfiles(_profiles.value)
+        profilePersistence?.saveActiveProfileId(_currentProfile.value?.id ?: "sahalin")
+
+        // save admin settings
+        val adminP = ctx.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE)
+        val editor = adminP.edit()
+        _adminToggles.value.forEach { (k, v) -> editor.putBoolean(k, v) }
+        _adminFloats.value.forEach { (k, v) -> editor.putFloat(k, v) }
+        _adminTexts.value.forEach { (k, v) -> editor.putString(k, v) }
+        editor.putBoolean("is_admin_enabled", _isAdminEnabled.value)
+        editor.apply()
+
+        // save market settings
+        val marketP = ctx.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
+        marketP.edit()
+            .putInt("user_balance", _userBalance.value)
+            .putStringSet("purchased_items", _purchasedItems.value.toSet())
+            .apply()
     }
 }
 
