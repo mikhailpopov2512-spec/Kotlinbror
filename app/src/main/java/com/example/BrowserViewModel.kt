@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import kotlinx.coroutines.withContext
+
 
 enum class BrowserMode {
     REGULAR,
@@ -126,8 +128,70 @@ class BrowserViewModel : ViewModel() {
     private var profilePersistence: UserProfilePersistence? = null
     private var appContext: Context? = null
 
+    // Room DB based blocked domains flow
+    private val _dbBlockedDomains = MutableStateFlow<Set<String>>(emptySet())
+    val dbBlockedDomains = _dbBlockedDomains.asStateFlow()
+
+    fun addBlockedDomain(domain: String, context: Context) {
+        val clean = domain.trim().lowercase()
+        if (clean.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(context)
+            db.blockedDomainDao().insert(BlockedDomain(domain = clean))
+            val newList = db.blockedDomainDao().getAllBlockedList()
+            _dbBlockedDomains.value = newList.map { it.domain.lowercase() }.toSet()
+        }
+    }
+
+    fun removeBlockedDomain(domain: String, context: Context) {
+        val clean = domain.trim().lowercase()
+        viewModelScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(context)
+            db.blockedDomainDao().deleteByDomain(clean)
+            val newList = db.blockedDomainDao().getAllBlockedList()
+            _dbBlockedDomains.value = newList.map { it.domain.lowercase() }.toSet()
+        }
+    }
+
+    fun resetBlockedDomains(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(context)
+            val dao = db.blockedDomainDao()
+            dao.deleteAll()
+            val defaults = listOf(
+                "instagram.com", "facebook.com", "twitter.com", "linkedin.com", "t.co", "x.com",
+                "pornhub.com", "blocked.ru", "prohibited.org", "rkn-ban.com", "bbcrussian.com", "dw.com",
+                "rutracker.org", "meduza.io", "zona.media", "theins.ru", "navalny.com", "kasparov.ru"
+            )
+            defaults.forEach { d ->
+                dao.insert(BlockedDomain(domain = d))
+            }
+            val list = dao.getAllBlockedList()
+            _dbBlockedDomains.value = list.map { it.domain.lowercase() }.toSet()
+        }
+    }
+
     fun initPersistence(context: Context) {
         appContext = context.applicationContext
+        
+        // Initialize and load Room DB domains asynchronously
+        viewModelScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(context)
+            val dao = db.blockedDomainDao()
+            var list = dao.getAllBlockedList()
+            if (list.isEmpty()) {
+                val defaults = listOf(
+                    "instagram.com", "facebook.com", "twitter.com", "linkedin.com", "t.co", "x.com",
+                    "pornhub.com", "blocked.ru", "prohibited.org", "rkn-ban.com", "bbcrussian.com", "dw.com"
+                )
+                defaults.forEach { d ->
+                    dao.insert(BlockedDomain(domain = d))
+                }
+                list = dao.getAllBlockedList()
+            }
+            _dbBlockedDomains.value = list.map { it.domain.lowercase() }.toSet()
+        }
+
         if (profilePersistence != null) return
         val persistence = UserProfilePersistence(context.applicationContext)
         profilePersistence = persistence
@@ -552,14 +616,25 @@ class BrowserViewModel : ViewModel() {
             emptyList()
         }
 
-        val targets = when (level) {
-            "Слабая" -> listOf("blocked.ru", "rkn-ban.com") + trackers
-            "Рекомендуемая" -> blocklistedDomains + trackers
-            "Максимальная" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru") + trackers
-            "Строгая" -> blocklistedDomains + listOf("ads-tracker.com", "telemetry-analytics.ru", "untrusted-proxy.net", "malicious-spyware.ru", "adware-network.com") + trackers
-            else -> blocklistedDomains + trackers
+        // Active Set of blocked domains from Room database + custom preloads
+        val baseBlockSet = _dbBlockedDomains.value.ifEmpty { blocklistedDomains.toSet() }
+
+        val extraBlocked = when (level) {
+            "Слабая" -> emptyList()
+            "Рекомендуемая" -> emptyList()
+            "Максимальная" -> listOf("ads-tracker.com", "telemetry-analytics.ru")
+            "Строгая" -> listOf("ads-tracker.com", "telemetry-analytics.ru", "untrusted-proxy.net", "malicious-spyware.ru", "adware-network.com")
+            else -> emptyList()
         }
-        val blocked = targets.any { cleanUrl.contains(it) }
+
+        // Check against trackers
+        val matchesTracker = trackers.any { cleanUrl.contains(it) }
+        // Check against Room DB / standard blocked domains
+        val matchesMainBlock = baseBlockSet.any { cleanUrl.contains(it) }
+        // Check against extras
+        val matchesExtra = extraBlocked.any { cleanUrl.contains(it) }
+
+        val blocked = matchesTracker || matchesMainBlock || matchesExtra
         if (blocked) {
             _blockedDomainsCount.value += 1
         }

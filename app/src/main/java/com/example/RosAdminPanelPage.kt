@@ -116,7 +116,7 @@ fun RosAdminPanelPage(
         )
     }
 
-    val categories = listOf("Все", "Баланс & VIP", "Безопасность & ФСБ", "Игры & Бустеры", "Кастомизация", "Оптимизация")
+    val categories = listOf("Все", "Баня РФ 🚫", "Баланс & VIP", "Безопасность & ФСБ", "Игры & Бустеры", "Кастомизация", "Оптимизация")
 
     // Filter items based on search query and category tab
     val filteredSchema = remember(searchQuery, selectedCategory, adminSchema) {
@@ -286,165 +286,327 @@ fun RosAdminPanelPage(
             Spacer(modifier = Modifier.height(10.dp))
 
             // 40 List of parameters and interactive settings
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                items(filteredSchema) { item ->
-                    val isToggled = activeToggles[item.id] ?: false
+            if (selectedCategory == "Баня РФ 🚫") {
+                var domainInput by remember { mutableStateOf("") }
+                val blockedDomainsSet by viewModel.dbBlockedDomains.collectAsState()
+                val sortedDomainsList = remember(blockedDomainsSet, searchQuery) {
+                    blockedDomainsSet.filter { it.contains(searchQuery, ignoreCase = true) }.sorted()
+                }
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White.copy(alpha = 0.04f))
-                            .border(
-                                1.dp,
-                                if (isToggled) Color(0xFF00FF66).copy(alpha = 0.4f) else Color.White.copy(alpha = 0.1f),
-                                RoundedCornerShape(14.dp)
+                // Add Domain Box (Glass)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                        .padding(14.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Block, null, tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "Добавить запрещенный домен в реестр",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
-                            .padding(12.dp)
-                    ) {
+                        }
+
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    text = item.title,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isToggled) Color(0xFF00FF66) else Color.White
-                                )
-                                Text(
-                                    text = item.description,
-                                    fontSize = 10.sp,
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    lineHeight = 13.sp,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedTextField(
+                                value = domainInput,
+                                onValueChange = { domainInput = it },
+                                placeholder = { Text("Пример: youtube.com", fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f)) },
+                                singleLine = true,
+                                textStyle = TextStyle(color = Color.White, fontSize = 12.sp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF00FF66),
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                    focusedContainerColor = Color.Black.copy(alpha = 0.15f),
+                                    unfocusedContainerColor = Color.Black.copy(alpha = 0.15f)
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1.0f).height(46.dp)
+                            )
+
+                            Button(
+                                onClick = {
+                                    val cleanDomain = domainInput.trim().lowercase()
+                                    if (cleanDomain.isNotEmpty()) {
+                                        viewModel.addBlockedDomain(cleanDomain, context)
+                                        Toast.makeText(context, "Домен $cleanDomain заблокирован в РФ!", Toast.LENGTH_SHORT).show()
+                                        domainInput = ""
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp),
+                                modifier = Modifier.height(46.dp)
+                            ) {
+                                Text("БАН 🚫", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // List Header with counter
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "ВСЕГО В РЕЕСТРЕ: ${blockedDomainsSet.size} сайтов",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+
+                    Text(
+                        text = "СИНХРОНИЗИРОВАТЬ",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF00FF66),
+                        modifier = Modifier.clickable {
+                            viewModel.resetBlockedDomains(context)
+                            Toast.makeText(context, "База синхронизирована с серверами РКН РФ!", Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // LazyColumn for domains list
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    if (sortedDomainsList.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Нет заблокированных доменов по вашему запросу", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                            }
+                        }
+                    } else {
+                        items(sortedDomainsList) { domain ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
-                                            .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 5.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(item.category, fontSize = 8.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
-                                    }
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFEF4444))
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = domain,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.removeBlockedDomain(domain, context)
+                                        Toast.makeText(context, "$domain успешно исключен из реестра блокировок", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Удалить",
+                                        tint = Color.LightGray.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                             }
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    items(filteredSchema) { item ->
+                        val isToggled = activeToggles[item.id] ?: false
 
-                            // Interactive control widget
-                            if (item.isAction) {
-                                Button(
-                                    onClick = {
-                                        // Handle explicit trigger actions!
-                                        when (item.id) {
-                                            "admin_add_10k" -> {
-                                                viewModel.addBalance(10000)
-                                                Toast.makeText(context, "Начислено субсидией +10,000 ₽!", Toast.LENGTH_SHORT).show()
-                                            }
-                                            "admin_reset_balance" -> {
-                                                val p = context.applicationContext.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
-                                                viewModel.addBalance(-balance) // Adjust balance to exactly 0
-                                                Toast.makeText(context, "Казна РФ очищена! Баланс выставлен на 0 ₽.", Toast.LENGTH_SHORT).show()
-                                            }
-                                            "admin_is_oligarch" -> {
-                                                viewModel.addBalance(1000000 - balance)
-                                                Toast.makeText(context, "Выдан статус Олигарха: 1,000,000 ₽ начислено!", Toast.LENGTH_SHORT).show()
-                                            }
-                                            "admin_unlock_all_vip" -> {
-                                                val allItems = listOf(
-                                                    "sub-month", "sub-year", "vip-sunset", "sochi-love", "neon-stealth",
-                                                    "butterfly-trail", "sun-corona-pro", "pond-ripple-60", "fireflies-night",
-                                                    "ad-blocker-pro", "tracker-blocker-pro", "gost-256", "auto-stealth",
-                                                    "ros-translate", "boost-detective", "shells-clicker", "endless-lives",
-                                                    "stickers-cats", "stickers-memes", "stickers-owl"
-                                                )
-                                                allItems.forEach { purchaseId ->
-                                                    if (!purchasedList.contains(purchaseId)) {
-                                                        // Bypass purchase check and inject direct
-                                                        viewModel.purchaseItem(purchaseId, 0)
-                                                    }
-                                                }
-                                                Toast.makeText(context, "Все 20 премиум привилегий и тем успешно разблокированы!", Toast.LENGTH_LONG).show()
-                                            }
-                                            "admin_flag_storm_speed" -> {
-                                                viewModel.setFlagWaveSpeed(15.0f, context)
-                                                Toast.makeText(context, "Сила ветра установлена на Ураган (15.0)!", Toast.LENGTH_SHORT).show()
-                                            }
-                                            "admin_flag_calm_speed" -> {
-                                                viewModel.setFlagWaveSpeed(0.0f, context)
-                                                Toast.makeText(context, "Полный штиль флага (0.0) активирован!", Toast.LENGTH_SHORT).show()
-                                            }
-                                            "admin_factory_reset_all" -> {
-                                                // Reset SharedPreferences
-                                                context.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE).edit().clear().apply()
-                                                context.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE).edit().clear().apply()
-                                                context.getSharedPreferences("rosbrowser_profiles_pref", Context.MODE_PRIVATE).edit().clear().apply()
-                                                
-                                                viewModel.addBalance(500 - balance) // Reset back to default
-                                                viewModel.setAdminStatus(false)
-                                                viewModel.loadAdminSettings(context)
-                                                
-                                                Toast.makeText(context, "ВСЕ ДАННЫЕ ОЧИЩЕНЫ. Приложение возвращено к заводскому состоянию!", Toast.LENGTH_LONG).show()
-                                                onBack()
-                                            }
-                                        }
-                                        // Save changed stats completely immediately!
-                                        viewModel.saveAllDataCompletely(context)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (item.id == "admin_factory_reset_all") Color(0xFFEF4444) else Color(0xFF00FF66),
-                                        contentColor = Color.Black
-                                    ),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                    modifier = Modifier.testTag("action_${item.id}").height(32.dp)
-                                ) {
-                                    Text("Запуск", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            } else {
-                                // Toggle Switch
-                                Switch(
-                                    checked = isToggled,
-                                    onCheckedChange = { chk ->
-                                        viewModel.setAdminToggle(item.id, chk)
-                                        
-                                        // Specific toggle effects!
-                                        if (item.id == "admin_fsb_agent_mode") {
-                                            if (chk) {
-                                                sendFSBNotification(context)
-                                                Toast.makeText(context, "Канал СпецСвязи ФСБ АКТИВИРОВАН!", Toast.LENGTH_LONG).show()
-                                            } else {
-                                                Toast.makeText(context, "Канал СпецСвязи закрыт.", Toast.LENGTH_SHORT).show()
-                                            }
-                                        } else if (item.id == "admin_anti_screenshot") {
-                                            Toast.makeText(
-                                                context,
-                                                if (chk) "Запрет скриншотов ВКЛЮЧЕН" else "Разрешены обычные снимки экрана",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        } else {
-                                            Toast.makeText(context, "Параметр изменен!", Toast.LENGTH_SHORT).show()
-                                        }
-                                        
-                                        // Ensure all states are instantly saved to SharedPreferences!
-                                        viewModel.saveAllDataCompletely(context)
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = Color(0xFF00FF66),
-                                        checkedTrackColor = Color(0xFF00FF66).copy(alpha = 0.3f),
-                                        uncheckedThumbColor = Color.LightGray,
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
-                                    ),
-                                    modifier = Modifier.testTag("toggle_${item.id}").scale(0.8f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(alpha = 0.04f))
+                                .border(
+                                    1.dp,
+                                    if (isToggled) Color(0xFF00FF66).copy(alpha = 0.4f) else Color.White.copy(alpha = 0.1f),
+                                    RoundedCornerShape(14.dp)
                                 )
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                    Text(
+                                        text = item.title,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isToggled) Color(0xFF00FF66) else Color.White
+                                    )
+                                    Text(
+                                        text = item.description,
+                                        fontSize = 10.sp,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        lineHeight = 13.sp,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(item.category, fontSize = 8.sp, color = Color.White.copy(alpha = 0.6f), fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+
+                                // Interactive control widget
+                                if (item.isAction) {
+                                    Button(
+                                        onClick = {
+                                            // Handle explicit trigger actions!
+                                            when (item.id) {
+                                                "admin_add_10k" -> {
+                                                    viewModel.addBalance(10000)
+                                                    Toast.makeText(context, "Начислено субсидией +10,000 ₽!", Toast.LENGTH_SHORT).show()
+                                                }
+                                                "admin_reset_balance" -> {
+                                                    viewModel.addBalance(-balance) // Adjust balance to exactly 0
+                                                    Toast.makeText(context, "Казна РФ очищена! Баланс выставлен на 0 ₽.", Toast.LENGTH_SHORT).show()
+                                                }
+                                                "admin_is_oligarch" -> {
+                                                    viewModel.addBalance(1000000 - balance)
+                                                    Toast.makeText(context, "Выдан статус Олигарха: 1,000,000 ₽ начислено!", Toast.LENGTH_SHORT).show()
+                                                }
+                                                "admin_unlock_all_vip" -> {
+                                                    val allItems = listOf(
+                                                        "sub-month", "sub-year", "vip-sunset", "sochi-love", "neon-stealth",
+                                                        "butterfly-trail", "sun-corona-pro", "pond-ripple-60", "fireflies-night",
+                                                        "ad-blocker-pro", "tracker-blocker-pro", "gost-256", "auto-stealth",
+                                                        "ros-translate", "boost-detective", "shells-clicker", "endless-lives",
+                                                        "stickers-cats", "stickers-memes", "stickers-owl"
+                                                    )
+                                                    allItems.forEach { purchaseId ->
+                                                        if (!purchasedList.contains(purchaseId)) {
+                                                            // Bypass purchase check and inject direct
+                                                            viewModel.purchaseItem(purchaseId, 0)
+                                                        }
+                                                    }
+                                                    Toast.makeText(context, "Все 20 премиум привилегий и тем успешно разблокированы!", Toast.LENGTH_LONG).show()
+                                                }
+                                                "admin_flag_storm_speed" -> {
+                                                    viewModel.setFlagWaveSpeed(15.0f, context)
+                                                    Toast.makeText(context, "Сила ветра установлена на Ураган (15.0)!", Toast.LENGTH_SHORT).show()
+                                                }
+                                                "admin_flag_calm_speed" -> {
+                                                    viewModel.setFlagWaveSpeed(0.0f, context)
+                                                    Toast.makeText(context, "Полный штиль флага (0.0) активирован!", Toast.LENGTH_SHORT).show()
+                                                }
+                                                "admin_factory_reset_all" -> {
+                                                    // Reset SharedPreferences
+                                                    context.getSharedPreferences("rosbrowser_admin_pref", Context.MODE_PRIVATE).edit().clear().apply()
+                                                    context.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE).edit().clear().apply()
+                                                    context.getSharedPreferences("rosbrowser_profiles_pref", Context.MODE_PRIVATE).edit().clear().apply()
+                                                    
+                                                    viewModel.addBalance(500 - balance) // Reset back to default
+                                                    viewModel.setAdminStatus(false)
+                                                    viewModel.loadAdminSettings(context)
+                                                    
+                                                    Toast.makeText(context, "ВСЕ ДАННЫЕ ОЧИЩЕНЫ. Приложение возвращено к заводскому состоянию!", Toast.LENGTH_LONG).show()
+                                                    onBack()
+                                                }
+                                            }
+                                            // Save changed stats completely immediately!
+                                            viewModel.saveAllDataCompletely(context)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (item.id == "admin_factory_reset_all") Color(0xFFEF4444) else Color(0xFF00FF66),
+                                            contentColor = Color.Black
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier.testTag("action_${item.id}").height(32.dp)
+                                    ) {
+                                        Text("Запуск", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    // Toggle Switch
+                                    Switch(
+                                        checked = isToggled,
+                                        onCheckedChange = { chk ->
+                                            viewModel.setAdminToggle(item.id, chk)
+                                            
+                                            // Specific toggle effects!
+                                            if (item.id == "admin_fsb_agent_mode") {
+                                                if (chk) {
+                                                    sendFSBNotification(context)
+                                                    Toast.makeText(context, "Канал СпецСвязи ФСБ АКТИВИРОВАН!", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    Toast.makeText(context, "Канал СпецСвязи закрыт.", Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else if (item.id == "admin_anti_screenshot") {
+                                                Toast.makeText(
+                                                    context,
+                                                    if (chk) "Запрет скриншотов ВКЛЮЧЕН" else "Разрешены обычные снимки экрана",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                Toast.makeText(context, "Параметр изменен!", Toast.LENGTH_SHORT).show()
+                                            }
+                                            
+                                            // Ensure all states are instantly saved to SharedPreferences!
+                                            viewModel.saveAllDataCompletely(context)
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color(0xFF00FF66),
+                                            checkedTrackColor = Color(0xFF00FF66).copy(alpha = 0.3f),
+                                            uncheckedThumbColor = Color.LightGray,
+                                            uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
+                                        ),
+                                        modifier = Modifier.testTag("toggle_${item.id}").scale(0.8f)
+                                    )
+                                }
                             }
                         }
                     }

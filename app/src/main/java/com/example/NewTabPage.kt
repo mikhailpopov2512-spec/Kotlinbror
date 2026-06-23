@@ -214,6 +214,86 @@ fun NewTabPage(
                 }
             }
 
+            // Prominent Sovereign Admin Panel Launcher Card at the top of the Home Menu
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(8.dp, RoundedCornerShape(24.dp))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.65f), RoundedCornerShape(24.dp))
+                        .clickable {
+                            onNavigate("chrome-native://admin")
+                        }
+                        .graphicsLayer(translationY = breezeOffset1)
+                        .testTag("admin_home_launcher"),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.White.copy(alpha = 0.45f)
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .background(Color(0xFFEF4444).copy(alpha = 0.15f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AdminPanelSettings,
+                                contentDescription = "Панель администратора",
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1.0f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "СЕКРЕТНЫЙ РЕЖИМ ГОСАППАРАТА",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFB91C1C)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFFFFEE58).copy(alpha = 0.8f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("v2.0", fontSize = 8.sp, fontWeight = FontWeight.Black, color = Color.Black)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Панель Управления: 40 Настроек ⚙️",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = textPrimaryColor
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Управление БД заблокированных сайтов в РФ, начисление секретных балансов.",
+                                fontSize = 11.sp,
+                                color = textSecondaryColor,
+                                lineHeight = 13.sp
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Вход",
+                            tint = textSecondaryColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+
             // Interactive Modules (Widgets: Weather, Traffic, Currency)
             item {
                 Row(

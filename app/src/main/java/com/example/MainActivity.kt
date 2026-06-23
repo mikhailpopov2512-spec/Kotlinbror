@@ -476,14 +476,33 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                     }
 
                     currentUrl == "chrome-native://admin" -> {
-                        // New Admin Panel Page with 40 interactive features
-                        RosAdminPanelPage(
-                            viewModel = viewModel,
-                            onBack = {
-                                addressTextInput = ""
-                                viewModel.setUrl("")
-                            }
-                        )
+                        var isVerified by remember(currentUrl) { mutableStateOf(false) }
+                        if (isVerified) {
+                            RosAdminPanelPage(
+                                viewModel = viewModel,
+                                onBack = {
+                                    isVerified = false
+                                    addressTextInput = ""
+                                    viewModel.setUrl("")
+                                }
+                            )
+                        } else {
+                            AdminPasswordEntryPage(
+                                onVerify = { pinCode ->
+                                    if (pinCode == "1234") {
+                                        isVerified = true
+                                        viewModel.setAdminStatus(true)
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                                onCancel = {
+                                    addressTextInput = ""
+                                    viewModel.setUrl("")
+                                }
+                            )
+                        }
                     }
 
                     currentUrl == "chrome-native://rossearx" -> {
