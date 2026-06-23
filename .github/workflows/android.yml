@@ -47,15 +47,20 @@ jobs:
             touch .env
           fi
 
-      - name: Decode Debug Keystore
+      - name: Decode or Generate Debug Keystore
         run: |
           if [ -f debug.keystore.base64 ]; then
             echo "Decoding debug.keystore.base64 into debug.keystore..."
             tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore 2>/dev/null || tr -d '\r\n ' < debug.keystore.base64 | base64 --decode > debug.keystore
-            ls -la debug.keystore
           else
             echo "Warning: debug.keystore.base64 not found!"
           fi
+          
+          if [ ! -f debug.keystore ]; then
+            echo "debug.keystore not found. Generating a standard debug keystore using keytool..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          ls -la debug.keystore
 
       - name: Change permissions for Gradlew
         run: chmod +x gradlew
@@ -112,15 +117,20 @@ jobs:
             touch .env
           fi
 
-      - name: Decode Debug Keystore
+      - name: Decode or Generate Debug Keystore
         run: |
           if [ -f debug.keystore.base64 ]; then
             echo "Decoding debug.keystore.base64 into debug.keystore..."
             tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore 2>/dev/null || tr -d '\r\n ' < debug.keystore.base64 | base64 --decode > debug.keystore
-            ls -la debug.keystore
           else
             echo "Warning: debug.keystore.base64 not found!"
           fi
+          
+          if [ ! -f debug.keystore ]; then
+            echo "debug.keystore not found. Generating a standard debug keystore using keytool..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          ls -la debug.keystore
 
       - name: Change permissions for Gradlew
         run: chmod +x gradlew
@@ -138,9 +148,9 @@ jobs:
             # Fall back to using the debug keystore as a placeholder to allow building without failing configuration
             if [ -f debug.keystore ]; then
               cp debug.keystore my-upload-key.jks
-            elif [ -f debug.keystore.base64 ]; then
-              echo "Decoding debug.keystore.base64 as a fallback release keystore..."
-              tr -d '\r\n ' < debug.keystore.base64 | base64 -d > my-upload-key.jks 2>/dev/null || tr -d '\r\n ' < debug.keystore.base64 | base64 --decode > my-upload-key.jks
+            else
+              echo "Generating my-upload-key.jks on the fly as a fallback..."
+              keytool -genkey -v -keystore my-upload-key.jks -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
             fi
             echo "KEY_ALIAS=androiddebugkey" >> $GITHUB_ENV
           fi

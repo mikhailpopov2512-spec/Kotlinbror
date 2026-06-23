@@ -35,14 +35,54 @@ android {
         keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
       } else {
         // Fallback to debug.keystore if release keystore does not exist
-        storeFile = file("${rootDir}/debug.keystore")
+        val debugKeystoreFile = file("${rootDir}/debug.keystore")
+        if (!debugKeystoreFile.exists()) {
+          try {
+            println("Generating fallback debug keystore in build.gradle.kts...")
+            val process = ProcessBuilder(
+              "keytool", "-genkey", "-v",
+              "-keystore", debugKeystoreFile.absolutePath,
+              "-storepass", "android",
+              "-alias", "androiddebugkey",
+              "-keypass", "android",
+              "-keyalg", "RSA",
+              "-keysize", "2048",
+              "-validity", "10000",
+              "-dname", "CN=Android Debug,O=Android,C=US"
+            ).start()
+            process.waitFor()
+          } catch (e: Exception) {
+            e.printStackTrace()
+          }
+        }
+        storeFile = debugKeystoreFile
         storePassword = "android"
         keyAlias = "androiddebugkey"
         keyPassword = "android"
       }
     }
     create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
+      val debugKeystoreFile = file("${rootDir}/debug.keystore")
+      if (!debugKeystoreFile.exists()) {
+        try {
+          println("Generating debug keystore in build.gradle.kts...")
+          val process = ProcessBuilder(
+            "keytool", "-genkey", "-v",
+            "-keystore", debugKeystoreFile.absolutePath,
+            "-storepass", "android",
+            "-alias", "androiddebugkey",
+            "-keypass", "android",
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", "10000",
+            "-dname", "CN=Android Debug,O=Android,C=US"
+          ).start()
+          process.waitFor()
+        } catch (e: Exception) {
+          e.printStackTrace()
+        }
+      }
+      storeFile = debugKeystoreFile
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
