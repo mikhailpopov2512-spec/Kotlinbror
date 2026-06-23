@@ -1,5 +1,3 @@
-import java.util.Base64
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -23,6 +21,12 @@ android {
   }
 
   signingConfigs {
+    getByName("debug") {
+      storeFile = rootProject.file("debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "my-upload-key.jks"
       val keystoreFile = if (keystorePath.startsWith("/") || keystorePath.contains(":/") || keystorePath.contains(":\\")) {
