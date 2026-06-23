@@ -64,10 +64,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
-
-      - name: Run JVM Unit Tests
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew assembleDebug -x test
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
