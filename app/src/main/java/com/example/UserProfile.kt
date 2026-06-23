@@ -156,4 +156,12 @@ class UserProfilePersistence(context: Context) {
     fun loadHapticVibeEnabled(): Boolean {
         return prefs.getBoolean("haptic_vibe_enabled", true)
     }
+
+    fun saveCustomBgPhoto(photo: String?) {
+        prefs.edit().putString("custom_bg_photo", photo).apply()
+    }
+
+    fun loadCustomBgPhoto(): String? {
+        return prefs.getString("custom_bg_photo", null)
+    }
 }

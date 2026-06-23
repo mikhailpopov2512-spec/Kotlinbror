@@ -235,6 +235,7 @@ class BrowserViewModel : ViewModel() {
         }
 
         // Load custom advanced settings
+        _customBgPhoto.value = persistence.loadCustomBgPhoto()
         _isSummerBgAnimEnabled.value = persistence.loadSummerBgAnimEnabled()
         _flagWaveSpeed.value = persistence.loadFlagWaveSpeed()
         _searchEnginePreset.value = persistence.loadSearchEnginePreset()
@@ -494,6 +495,9 @@ class BrowserViewModel : ViewModel() {
     val isPasswordManagerUnlocked = _isPasswordManagerUnlocked.asStateFlow()
 
     // Dynamic Live Background Animations & Custom Settings Properties
+    private val _customBgPhoto = MutableStateFlow<String?>(null)
+    val customBgPhoto = _customBgPhoto.asStateFlow()
+
     private val _isSummerBgAnimEnabled = MutableStateFlow(true)
     val isSummerBgAnimEnabled = _isSummerBgAnimEnabled.asStateFlow()
 
@@ -565,6 +569,12 @@ class BrowserViewModel : ViewModel() {
 
     fun setRuAdListEnabled(enabled: Boolean) {
         _isRuAdListEnabled.value = enabled
+    }
+
+    fun setCustomBgPhoto(photo: String?, context: Context) {
+        _customBgPhoto.value = photo
+        val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
+        persistence.saveCustomBgPhoto(photo)
     }
 
     fun setSummerBgAnimEnabled(enabled: Boolean, context: Context) {

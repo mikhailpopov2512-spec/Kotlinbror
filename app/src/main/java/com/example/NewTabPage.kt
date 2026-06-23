@@ -65,6 +65,7 @@ fun NewTabPage(
     val blockedCount by viewModel.blockedDomainsCount.collectAsState()
     val securityStatus by viewModel.connectionSecurityStatus.collectAsState()
     val filterLevel by viewModel.filterLevel.collectAsState()
+    val adminToggles by viewModel.adminToggles.collectAsState()
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -96,22 +97,27 @@ fun NewTabPage(
         label = "BreezeOffset2"
     )
 
-    // Glass style colors based on browserMode
-    val glassBg = if (browserMode == BrowserMode.INCOGNITO) {
-        Color(0xBA0F172A)
-    } else if (browserMode == BrowserMode.STEALTH) {
-        Color(0xE6050505)
+    // Glass style colors based on browserMode and admin preferences
+    val isExtremeBlur = adminToggles["admin_extreme_blur"] == true
+    val isForceDarkMode = adminToggles["admin_force_dark_mode"] == true
+
+    val glassBg = if (isForceDarkMode || browserMode == BrowserMode.STEALTH) {
+        if (isExtremeBlur) Color(0xF4020202) else Color(0xEB050505)
+    } else if (browserMode == BrowserMode.INCOGNITO) {
+        if (isExtremeBlur) Color(0xF40A0F1D) else Color(0xCC0F172A)
     } else {
-        Color(0xA6FFFFFF) // #99FFFFFF with micro adjust
+        if (isExtremeBlur) Color(0xF4EFEFEF) else Color(0xA6FFFFFF) // Extra thick frosted white glass
     }
 
-    val glassBorder = if (browserMode == BrowserMode.STEALTH) {
-        Color(0xFF00FF66).copy(alpha = 0.5f)
+    val glassBorder = if (isForceDarkMode || browserMode == BrowserMode.STEALTH) {
+        Color(0xFF00FF66).copy(alpha = if (isExtremeBlur) 0.9f else 0.5f)
+    } else if (browserMode == BrowserMode.INCOGNITO) {
+        Color.White.copy(alpha = if (isExtremeBlur) 0.6f else 0.3f)
     } else {
-        Color.White.copy(alpha = 0.6f)
+        Color.White.copy(alpha = if (isExtremeBlur) 0.9f else 0.6f)
     }
 
-    val textPrimaryColor = if (browserMode == BrowserMode.STEALTH) {
+    val textPrimaryColor = if (isForceDarkMode || browserMode == BrowserMode.STEALTH) {
         Color(0xFF00FF66)
     } else if (browserMode == BrowserMode.INCOGNITO) {
         Color.White
@@ -119,7 +125,7 @@ fun NewTabPage(
         Color(0xFF1E293B)
     }
 
-    val textSecondaryColor = if (browserMode == BrowserMode.STEALTH) {
+    val textSecondaryColor = if (isForceDarkMode || browserMode == BrowserMode.STEALTH) {
         Color(0xFF00B344)
     } else if (browserMode == BrowserMode.INCOGNITO) {
         Color(0xFFCBD5E1)

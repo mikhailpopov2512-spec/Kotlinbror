@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -147,6 +148,115 @@ fun ThemeSelectorComponent(
                         textAlign = TextAlign.Center
                     )
                 }
+            }
+        }
+
+        // Custom background photo row
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Свой фоновый рисунок (Фото):",
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            color = textPrimaryColor
+        )
+
+        val customBgPhoto by viewModel.customBgPhoto.collectAsState()
+
+        val photoPresets = listOf(
+            Pair("Сочи Пляж 🏖️", "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop"),
+            Pair("Байкал Ночь 🌌", "https://images.unsplash.com/photo-1495107334309-fcf20504a5ab?q=80&w=1000&auto=format&fit=crop"),
+            Pair("Красная Площадь 🏰", "https://images.unsplash.com/photo-1513326738677-b964603b136d?q=80&w=1000&auto=format&fit=crop"),
+            Pair("Сибирский Бор 🌲", "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000&auto=format&fit=crop"),
+            Pair("Неон Глоу ⚡", "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop")
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // "Стандарт" option
+            Card(
+                modifier = Modifier
+                    .width(110.dp)
+                    .clickable {
+                        viewModel.setCustomBgPhoto(null, context)
+                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    .border(
+                        2.dp,
+                        if (customBgPhoto == null) Color(0xFFFBBF24) else Color.Transparent,
+                        RoundedCornerShape(8.dp)
+                    ),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().height(42.dp).padding(4.dp), contentAlignment = Alignment.Center) {
+                    Text("Без фото ❌", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor)
+                }
+            }
+
+            photoPresets.forEach { (name, url) ->
+                val isSelected = (customBgPhoto == url)
+                Card(
+                    modifier = Modifier
+                        .width(110.dp)
+                        .clickable {
+                            viewModel.setCustomBgPhoto(url, context)
+                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        .border(
+                            2.dp,
+                            if (isSelected) Color(0xFFFBBF24) else Color.Transparent,
+                            RoundedCornerShape(8.dp)
+                        ),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth().height(42.dp).padding(4.dp), contentAlignment = Alignment.Center) {
+                        Text(name, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = textPrimaryColor, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+        }
+
+        // Custom image URL entry textfield
+        var customUrlInput by remember { mutableStateOf(if (customBgPhoto != null && photoPresets.none { it.second == customBgPhoto }) customBgPhoto ?: "" else "") }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = customUrlInput,
+                onValueChange = { customUrlInput = it },
+                placeholder = { Text("Вставить ссылку на любое фото...", fontSize = 9.sp, color = textPrimaryColor.copy(alpha = 0.4f)) },
+                singleLine = true,
+                textStyle = TextStyle(color = textPrimaryColor, fontSize = 11.sp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF0D9488),
+                    unfocusedBorderColor = textPrimaryColor.copy(alpha = 0.15f),
+                    focusedContainerColor = Color.White.copy(alpha = 0.04f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.04f)
+                ),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.weight(1f).height(46.dp)
+            )
+
+            Button(
+                onClick = {
+                    if (customUrlInput.trim().isNotEmpty()) {
+                        viewModel.setCustomBgPhoto(customUrlInput.trim(), context)
+                        Toast.makeText(context, "Кастомный фон установлен!", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488)),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                modifier = Modifier.height(46.dp)
+            ) {
+                Text("ОК", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
 

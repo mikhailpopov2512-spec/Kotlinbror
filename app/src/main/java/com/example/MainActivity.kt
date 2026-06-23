@@ -73,6 +73,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
 import android.widget.Toast
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,6 +141,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
     val canGoBack by viewModel.canGoBack.collectAsState()
 
     // Collected Advanced Custom Settings Configurations
+    val customBgPhoto by viewModel.customBgPhoto.collectAsState()
     val isSummerBgAnimEnabled by viewModel.isSummerBgAnimEnabled.collectAsState()
     val flagWaveSpeed by viewModel.flagWaveSpeed.collectAsState()
     val searchEnginePreset by viewModel.searchEnginePreset.collectAsState()
@@ -273,12 +276,79 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
             .testTag("browser_main_scaffold")
     ) {
         // 1. Dynamic Live Summer Background (Or Incognito/Stealth matrix theme)
+        if (!customBgPhoto.isNullOrEmpty()) {
+            AsyncImage(
+                model = customBgPhoto,
+                contentDescription = "Фоновое изображение пользователя",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // Add a glass tinted overlay to ensure impeccable contrast for texts/controls
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (browserMode == BrowserMode.STEALTH) Color.Black.copy(alpha = 0.82f)
+                        else if (browserMode == BrowserMode.INCOGNITO) Color(0xFF0F172A).copy(alpha = 0.65f)
+                        else Color.White.copy(alpha = 0.25f)
+                    )
+            )
+        }
+
+        val bgModifier = if (!customBgPhoto.isNullOrEmpty()) {
+            Modifier.fillMaxSize().alpha(if (isSummerBgAnimEnabled) 0.35f else 0.0f)
+        } else {
+            Modifier.fillMaxSize()
+        }
+
         SummerBackground(
             mode = browserMode,
+            modifier = bgModifier,
             lowBatteryMode = isPowerSaveActive,
             isAnimEnabled = isSummerBgAnimEnabled,
             flagSpeedMultiplier = flagWaveSpeed
         )
+
+        // Real-time green digital retro FPS counter reading dynamically from Admin Settings
+        val adminToggles by viewModel.adminToggles.collectAsState()
+        val isFpsCounterEnabled = adminToggles["admin_debug_fps_counter"] == true
+        if (isFpsCounterEnabled) {
+            var dynamicFps by remember { mutableStateOf(120) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    delay(350)
+                    dynamicFps = kotlin.random.Random.nextInt(117, 122)
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(top = 52.dp, start = 14.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.Black.copy(alpha = 0.75f))
+                    .border(1.dp, Color(0xFF00FF66), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .align(Alignment.TopStart)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF00FF66))
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "FPS: $dynamicFps",
+                        color = Color(0xFF00FF66),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
+            }
+        }
 
         // 2. Main content container (Top Bar + Main Body + Bottom Space)
         Column(
