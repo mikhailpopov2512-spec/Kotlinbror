@@ -130,6 +130,7 @@ jobs:
           if [ ! -z "$SIGNING_KEYSTORE_BASE64" ]; then
             echo "Decoding release signing keystore..."
             echo "$SIGNING_KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS || 'upload' }}" >> $GITHUB_ENV
           else
             echo "SIGNING_KEYSTORE_BASE64 secret is not defined. Falling back to the localized debug keystore for compilation test."
             # Fall back to using the debug keystore as a placeholder to allow building without failing configuration
@@ -137,8 +138,9 @@ jobs:
               cp debug.keystore my-upload-key.jks
             elif [ -f debug.keystore.base64 ]; then
               echo "Decoding debug.keystore.base64 as a fallback release keystore..."
-              cat debug.keystore.base64 | base64 --decode > my-upload-key.jks
+              base64 --decode debug.keystore.base64 > my-upload-key.jks
             fi
+            echo "KEY_ALIAS=androiddebugkey" >> $GITHUB_ENV
           fi
 
       - name: Build Release Bundle & APK
@@ -146,6 +148,7 @@ jobs:
           KEYSTORE_PATH: my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'android' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
         run: ./gradlew assembleRelease bundleRelease
 
       - name: Upload Release APK Artifact
