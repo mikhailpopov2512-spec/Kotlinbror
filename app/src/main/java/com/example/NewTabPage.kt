@@ -75,6 +75,27 @@ fun NewTabPage(
     // Dialog state for feedback
     var showDialogFeedback by remember { mutableStateOf<String?>(null) }
 
+    // Subtle Breeze Floating Animations for Glassmorphic components
+    val breezeTransition = rememberInfiniteTransition(label = "BreezeFloat")
+    val breezeOffset1 by breezeTransition.animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3500, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "BreezeOffset1"
+    )
+    val breezeOffset2 by breezeTransition.animateFloat(
+        initialValue = 3f,
+        targetValue = -3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 4200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "BreezeOffset2"
+    )
+
     // Glass style colors based on browserMode
     val glassBg = if (browserMode == BrowserMode.INCOGNITO) {
         Color(0xBA0F172A)
@@ -204,6 +225,7 @@ fun NewTabPage(
                         modifier = Modifier
                             .weight(1f)
                             .height(135.dp)
+                            .graphicsLayer(translationY = breezeOffset1)
                             .shadow(8.dp, RoundedCornerShape(20.dp), clip = false)
                             .border(1.dp, glassBorder, RoundedCornerShape(20.dp))
                             .background(glassBg, RoundedCornerShape(20.dp))
@@ -223,6 +245,7 @@ fun NewTabPage(
                         modifier = Modifier
                             .weight(1f)
                             .height(135.dp)
+                            .graphicsLayer(translationY = breezeOffset2)
                             .shadow(8.dp, RoundedCornerShape(20.dp), clip = false)
                             .border(1.dp, glassBorder, RoundedCornerShape(20.dp))
                             .background(glassBg, RoundedCornerShape(20.dp))
@@ -244,6 +267,7 @@ fun NewTabPage(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(85.dp)
+                        .graphicsLayer(translationY = breezeOffset1 * 0.7f)
                         .shadow(8.dp, RoundedCornerShape(20.dp), clip = false)
                         .border(1.dp, glassBorder, RoundedCornerShape(20.dp))
                         .background(glassBg, RoundedCornerShape(20.dp))
@@ -271,6 +295,7 @@ fun NewTabPage(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(95.dp)
+                        .graphicsLayer(translationY = breezeOffset2 * 0.7f)
                         .shadow(8.dp, RoundedCornerShape(20.dp), clip = false)
                         .border(1.dp, glassBorder, RoundedCornerShape(20.dp))
                         .background(glassBg, RoundedCornerShape(20.dp))

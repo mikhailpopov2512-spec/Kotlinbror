@@ -444,6 +444,17 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                         )
                     }
 
+                    currentUrl == "chrome-native://market" -> {
+                        // Custom RosMarket store
+                        RosMarketPage(
+                            viewModel = viewModel,
+                            onBack = {
+                                addressTextInput = ""
+                                viewModel.setUrl("")
+                            }
+                        )
+                    }
+
                     currentUrl == "chrome-native://rossearx" -> {
                         // Custom RosPoisk engine UI
                         SearchPage(

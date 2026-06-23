@@ -3,9 +3,12 @@ package com.example
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 enum class BrowserMode {
@@ -173,6 +176,14 @@ class BrowserViewModel : ViewModel() {
         _searchEnginePreset.value = persistence.loadSearchEnginePreset()
         _fontSizeScale.value = persistence.loadFontSizeScale()
         _isHapticVibeEnabled.value = persistence.loadHapticVibeEnabled()
+
+        // Load balance & purchased items
+        val marketPrefs = context.applicationContext.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
+        _userBalance.value = marketPrefs.getInt("user_balance", 500)
+        val purchasedSaved = marketPrefs.getStringSet("purchased_items", null)
+        if (purchasedSaved != null) {
+            _purchasedItems.value = purchasedSaved.toList()
+        }
     }
 
     fun switchProfile(profileId: String, context: Context) {
@@ -219,7 +230,10 @@ class BrowserViewModel : ViewModel() {
         _currentProfile.value = updated
         val list = _profiles.value.map { p -> if (p.id == updated.id) updated else p }
         _profiles.value = list
-        persistence.saveProfiles(list)
+        
+        viewModelScope.launch(Dispatchers.IO) {
+            persistence.saveProfiles(list)
+        }
     }
 
     fun saveCurrentProfileState() {
@@ -263,6 +277,7 @@ class BrowserViewModel : ViewModel() {
 
     fun defaultShortcutsList(): List<PebbleShortcut> {
         return listOf(
+            PebbleShortcut("rosmarket", "РосМаркет 🌸", "chrome-native://market"),
             PebbleShortcut("ya", "Яндекс", "https://yandex.ru", isYandexService = true),
             PebbleShortcut("gu", "Госуслуги", "https://gosuslugi.ru"),
             PebbleShortcut("ru", "RuStore", "https://rustore.ru"),
@@ -284,6 +299,12 @@ class BrowserViewModel : ViewModel() {
         val trimmed = url.trim()
         if (trimmed.isEmpty()) {
             _currentUrl.value = ""
+            return
+        }
+
+        val lower = trimmed.lowercase()
+        if (lower == "rosmarket" || lower == "market" || lower == "chrome-native://market" || lower == "market://") {
+            _currentUrl.value = "chrome-native://market"
             return
         }
 
@@ -741,6 +762,10 @@ class BrowserViewModel : ViewModel() {
 
     fun addBalance(amount: Int) {
         _userBalance.update { it + amount }
+        appContext?.let { ctx ->
+            val p = ctx.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
+            p.edit().putInt("user_balance", _userBalance.value).apply()
+        }
     }
 
     fun usePromoCode(code: String): String {
@@ -770,7 +795,31 @@ class BrowserViewModel : ViewModel() {
         }
         _userBalance.update { it - price }
         _purchasedItems.update { it + item }
+        appContext?.let { ctx ->
+            val p = ctx.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
+            p.edit()
+                .putInt("user_balance", _userBalance.value)
+                .putStringSet("purchased_items", _purchasedItems.value.toSet())
+                .apply()
+        }
         return "Поздравляем! Вы приобрели '$item' успешно!"
+    }
+
+    fun restoreYandexPurchases(context: Context): String {
+        if (!_isLoggedInYandex.value) {
+            return "Сначала авторизуйте Яндекс ID для восстановления покупок!"
+        }
+        val restored = listOf("vip-sunset", "butterfly-trail", "gost-256", "ad-blocker-pro")
+        restored.forEach { item ->
+            if (!_purchasedItems.value.contains(item)) {
+                _purchasedItems.update { it + item }
+            }
+        }
+        val p = context.applicationContext.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
+        p.edit()
+            .putStringSet("purchased_items", _purchasedItems.value.toSet())
+            .apply()
+        return "Успешно восстановлено 4 покупки из облака Яндекс ID!"
     }
 
     fun setAdminStatus(enabled: Boolean) {
