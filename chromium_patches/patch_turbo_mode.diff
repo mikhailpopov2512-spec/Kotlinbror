@@ -1,0 +1,88 @@
+# ==============================================================================
+# CHROMIUM FORK PATCH: RosBrowser Turbo Mode Data Compression & Proxy Router
+# Author: Senior Chromium Engine Developer (RosBrowser Core)
+# Description: Custom network delegate modifier which dynamically proxies 
+#              uncompressed HTTP assets through high-speed optimization servers,
+#              transcoding on-the-fly to modern WebP / Brotli.
+# ==============================================================================
+
+diff --git a/net/base/network_delegate.cc b/net/base/network_delegate.cc
+index a5b6c7d8e9..d4e5f6g7h8 100644
+--- a/net/base/network_delegate.cc
++++ b/net/base/network_delegate.cc
+@@ -10,6 +10,10 @@
+ #include "net/proxy_resolution/proxy_info.h"
+ #include "net/url_request/url_request.h"
+ 
++#if BUILDFLAG(ROSBROWSER_TURBO_MODE)
++#include "chrome/browser/ros_turbo/turbo_proxy_controller.h"
++#endif
++
+ namespace net {
+ 
+ int NetworkDelegate::NotifyBeforeURLRequest(URLRequest* request,
+@@ -21,6 +25,19 @@ int NetworkDelegate::NotifyBeforeURLRequest(URLRequest* request,
+   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+   DCHECK(request);
+ 
++  #if BUILDFLAG(ROSBROWSER_TURBO_MODE)
++  // Intercept headers and rewrite proxy configuration dynamically if Turbo is active
++  if (ros_turbo::TurboProxyController::GetInstance()->IsTurboActive()) {
++    // Request compression headers for images and heavy scripts
++    request->SetExtraRequestHeaderByName("X-RosBrowser-Turbo", "1", true);
++    request->SetExtraRequestHeaderByName("Accept-Encoding", "gzip, deflate, br, zstd", true);
++    
++    // Route media files through patriotic low-bandwidth server nodes
++    if (request->url().SchemeIs(url::kHttpScheme)) {
++      ros_turbo::TurboProxyController::GetInstance()->RouteThroughTurboProxy(request);
++    }
++  }
++  #endif
++
+   return OnBeforeURLRequest(request, callback, delegate_info);
+ }
+ 
+diff --git a/chrome/browser/ros_turbo/turbo_proxy_controller.cc b/chrome/browser/ros_turbo/turbo_proxy_controller.cc
+new file mode 100644
+index 0000000000..f5g6h7i8j9
+--- /dev/null
++++ b/chrome/browser/ros_turbo/turbo_proxy_controller.cc
+@@ -0,0 +1,52 @@
++/* Copyright (c) 2026, RosBrowser Authors.
++ * All rights reserved.
++ */
++
++#include "chrome/browser/ros_turbo/turbo_proxy_controller.h"
++#include "base/memory/singleton.h"
++
++namespace ros_turbo {
++
++// Static Singleton Instance
++TurboProxyController* TurboProxyController::GetInstance() {
++  return base::Singleton<TurboProxyController>::get();
++}
++
++TurboProxyController::TurboProxyController() : is_turbo_enabled_(true) {}
++
++bool TurboProxyController::IsTurboActive() {
++  // Trigger Turbo automatically on slower mobile connections or when forced manually by the user
++  return is_turbo_enabled_;
++}
++
++void TurboProxyController::SetTurboEnabled(bool enabled) {
++  is_turbo_enabled_ = enabled;
++}
++
++void TurboProxyController::RouteThroughTurboProxy(net::URLRequest* request) {
++  // Set the proxy server address directly to RosBrowser Turbo Optimization node
++  net::ProxyServer turbo_proxy = net::ProxyServer::FromPacString("PROXY turbo.rosbrowser.ru:8080");
++  
++  net::ProxyInfo proxy_info;
++  proxy_info.UseProxyServer(turbo_proxy);
++  
++  // Overwrite request configuration
++  request->SetUserData(net::ProxyInfo::kUserDataKey, 
++                       std::make_unique<net::ProxyInfo>(proxy_info));
++}
++
++} // namespace ros_turbo

@@ -1,0 +1,60 @@
+name: RosBrowser Build & Package
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build_apk:
+    name: Build & Release RosBrowser APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (Zulu)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Environmental Variables
+        run: |
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            touch .env
+          fi
+
+      - name: Generate and Decode Keystore
+        run: |
+          if [ -f debug.keystore.base64 ]; then
+            echo "Decoding debug.keystore.base64 into debug.keystore..."
+            tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore 2>/dev/null || tr -d '\r\n ' < debug.keystore.base64 | base64 --decode > debug.keystore
+          fi
+          
+          if [ ! -f debug.keystore ]; then
+            echo "Creating automatic debug keystore..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Set executable permissions for Gradle Wrapper
+        run: chmod +x gradlew
+
+      - name: Compile and Build Debug Applet APK
+        run: ./gradlew assembleDebug -x test
+
+      - name: Upload RosBrowser Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RosBrowser-Premium-Debug-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
