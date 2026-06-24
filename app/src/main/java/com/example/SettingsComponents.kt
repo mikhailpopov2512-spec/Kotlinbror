@@ -426,10 +426,181 @@ fun SecuritySettingsComponent(
     onPinUpdate: (String) -> Unit,
     onOpenPasswords: () -> Unit
 ) {
+    val isTrackerBlockingEnabled by viewModel.isTrackerBlockingEnabled.collectAsState()
+    val isAdBlockActive by viewModel.isAdBlockActive.collectAsState()
+    val isSecureWarningEnabled by viewModel.isSecureWarningEnabled.collectAsState()
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // 'Банановая Защита' Premium Security Panel
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = Color(0xFFFBBF24).copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFFEF3C7).copy(alpha = 0.08f)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Header with yellow accents
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color(0xFFFEF3C7).copy(alpha = 0.25f), CircleShape)
+                            .border(1.dp, Color(0xFFF59E0B), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🍌", fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Банановая Защита 🍌",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFD97706)
+                        )
+                        Text(
+                            text = "Интеллектуальная щитовая защита веб-серфинга",
+                            fontSize = 9.sp,
+                            color = textSecondaryColor.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = Color(0xFFFBBF24).copy(alpha = 0.15f))
+
+                // Feature 1: Anti-tracking (Банановый След)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Анти-трекинг (Банановый След) 🐾",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimaryColor
+                        )
+                        Text(
+                            text = "Блокировка жучков, пикселей и следящих скриптов",
+                            fontSize = 8.sp,
+                            color = textSecondaryColor
+                        )
+                    }
+                    Switch(
+                        checked = isTrackerBlockingEnabled,
+                        onCheckedChange = {
+                            viewModel.setTrackerBlockingEnabled(it, context)
+                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            Toast.makeText(
+                                context,
+                                if (it) "Банановый След включен: слежка заблокирована!" else "Слежка разрешена",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFFF59E0B)
+                        )
+                    )
+                }
+
+                // Feature 2: Ad-blocking (Банановый Щит)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Блокировка рекламы (Банановый Щит) 🛡️",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimaryColor
+                        )
+                        Text(
+                            text = "Фильтрация назойливых рекламных баннеров и всплывающих окон",
+                            fontSize = 8.sp,
+                            color = textSecondaryColor
+                        )
+                    }
+                    Switch(
+                        checked = isAdBlockActive,
+                        onCheckedChange = {
+                            viewModel.setAdBlockActive(it, context)
+                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            Toast.makeText(
+                                context,
+                                if (it) "Банановый Щит активен: реклама вырезана!" else "Реклама разрешена",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFFF59E0B)
+                        )
+                    )
+                }
+
+                // Feature 3: Secure Connection Warnings (Банановый Патруль)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Контроль соединений (Банановый Патруль) 🚨",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimaryColor
+                        )
+                        Text(
+                            text = "Предупреждать при посещении небезопасных (HTTP) сайтов",
+                            fontSize = 8.sp,
+                            color = textSecondaryColor
+                        )
+                    }
+                    Switch(
+                        checked = isSecureWarningEnabled,
+                        onCheckedChange = {
+                            viewModel.setSecureWarningEnabled(it, context)
+                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            Toast.makeText(
+                                context,
+                                if (it) "Банановый Патруль на страже: HTTP предупреждения включены!" else "Предупреждения HTTP выключены",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFFF59E0B)
+                        )
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(color = glassBorder.copy(alpha = 0.15f))
+
         Text("Уровень фильтрации неблагоприятных сайтов:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = textPrimaryColor)
         val filterLevels = listOf("Слабая", "Рекомендуемая", "Максимальная", "Строгая")
         filterLevels.forEach { level ->

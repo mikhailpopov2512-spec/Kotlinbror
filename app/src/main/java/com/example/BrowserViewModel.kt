@@ -242,6 +242,9 @@ class BrowserViewModel : ViewModel() {
         _fontSizeScale.value = persistence.loadFontSizeScale()
         _isHapticVibeEnabled.value = persistence.loadHapticVibeEnabled()
 
+        val sp = context.getSharedPreferences("rosbrowser_profiles_pref", Context.MODE_PRIVATE)
+        _isSecureWarningEnabled.value = sp.getBoolean("is_secure_warning_enabled", true)
+
         // Load balance & purchased items
         val marketPrefs = context.applicationContext.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
         _userBalance.value = marketPrefs.getInt("user_balance", 500)
@@ -523,6 +526,9 @@ class BrowserViewModel : ViewModel() {
     private val _isHapticVibeEnabled = MutableStateFlow(true)
     val isHapticVibeEnabled = _isHapticVibeEnabled.asStateFlow()
 
+    private val _isSecureWarningEnabled = MutableStateFlow(true)
+    val isSecureWarningEnabled = _isSecureWarningEnabled.asStateFlow()
+
     private val _isLoggedInYandex = MutableStateFlow(false)
     val isLoggedInYandex = _isLoggedInYandex.asStateFlow()
 
@@ -571,6 +577,12 @@ class BrowserViewModel : ViewModel() {
     fun setAdBlockActive(active: Boolean, context: Context) {
         _isAdBlockActive.value = active
         saveCurrentProfileState(context)
+    }
+
+    fun setSecureWarningEnabled(enabled: Boolean, context: Context) {
+        _isSecureWarningEnabled.value = enabled
+        val sp = context.getSharedPreferences("rosbrowser_profiles_pref", Context.MODE_PRIVATE)
+        sp.edit().putBoolean("is_secure_warning_enabled", enabled).apply()
     }
 
     fun setEasyListRussiaEnabled(enabled: Boolean) {

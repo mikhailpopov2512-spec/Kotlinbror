@@ -77,6 +77,20 @@ fun WebViewContainer(
                                     viewModel.setUrl("chrome-native://blocked")
                                     view?.stopLoading()
                                 }
+
+                                // Secure connection (HTTPS) warning under 'Banana Protection'
+                                if (viewModel.isSecureWarningEnabled.value &&
+                                    it.startsWith("http://") &&
+                                    !it.startsWith("https://") &&
+                                    !it.contains("127.0.0.1") &&
+                                    !it.contains("localhost")
+                                ) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "🍌 Банановый Патруль: Опасность! Соединение не защищено (HTTP). Возможен перехват ваших бананов!",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             }
                         }
 
