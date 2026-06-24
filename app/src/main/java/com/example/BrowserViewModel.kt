@@ -309,6 +309,16 @@ class BrowserViewModel : ViewModel() {
         saveCurrentProfileState(context)
     }
 
+    fun deleteHistoryItem(item: String, context: Context) {
+        _history.update { current -> current.filter { it != item } }
+        saveCurrentProfileState(context)
+    }
+
+    fun clearHistory(context: Context) {
+        _history.value = emptyList()
+        saveCurrentProfileState(context)
+    }
+
     fun createProfile(name: String, avatarColor: String, context: Context) {
         val persistence = profilePersistence ?: UserProfilePersistence(context.applicationContext)
         val newProfile = UserProfile(

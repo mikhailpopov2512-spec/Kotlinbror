@@ -12,6 +12,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -170,6 +171,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
     // Address Bar Focus and input states
     var isOmniboxFocused by remember { mutableStateOf(false) }
     var addressTextInput by remember { mutableStateOf("") }
+    var activeNavigationTab by remember { mutableStateOf("home") }
     val focusRequester = remember { FocusRequester() }
 
     // Floating UI Mock Dialogs
@@ -214,7 +216,9 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
 
     // Intercept back actions in the browser to act like a real browser!
     val backAction: () -> Unit = {
-        if (currentUrl.isNotBlank()) {
+        if (activeNavigationTab != "home") {
+            activeNavigationTab = "home"
+        } else if (currentUrl.isNotBlank()) {
             if (currentUrl == "chrome-native://blocked" || currentUrl == "chrome-native://rossearx") {
                 viewModel.setUrl("")
             } else if (activeWebView?.canGoBack() == true) {
@@ -225,7 +229,7 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
         }
     }
 
-    BackHandler(enabled = currentUrl.isNotBlank()) {
+    BackHandler(enabled = currentUrl.isNotBlank() || activeNavigationTab != "home") {
         backAction()
     }
 
@@ -511,89 +515,117 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                when {
-                    currentUrl.isEmpty() -> {
-                        // Show beautiful Summer New Tab Page
-                        NewTabPage(
-                            viewModel = viewModel,
-                            onOpenSecuritySettings = {
-                                showSecuritySettingsDialog = true
-                            },
-                            onNavigate = { target ->
-                                addressTextInput = target
-                                viewModel.setUrl(target)
-                            }
-                        )
-                    }
-
-                    currentUrl == "chrome-native://blocked" -> {
-                        // RKN custom block page
-                        BlockedPage(
-                            viewModel = viewModel,
-                            onBack = { viewModel.setUrl("") }
-                        )
-                    }
-
-                    currentUrl == "chrome-native://market" -> {
-                        // Custom RosMarket store
-                        RosMarketPage(
-                            viewModel = viewModel,
-                            onBack = {
-                                addressTextInput = ""
-                                viewModel.setUrl("")
-                            }
-                        )
-                    }
-
-                    currentUrl == "chrome-native://admin" -> {
-                        var isVerified by remember(currentUrl) { mutableStateOf(false) }
-                        if (isVerified) {
-                            RosAdminPanelPage(
+                if (activeNavigationTab == "history") {
+                    SummerHistoryPage(
+                        viewModel = viewModel,
+                        textPrimaryColor = textPrimaryColor,
+                        textSecondaryColor = textSecondaryColor,
+                        glassBg = glassBg,
+                        glassBorder = glassBorder,
+                        isHapticVibeEnabled = isHapticVibeEnabled,
+                        onNavigate = { target ->
+                            addressTextInput = target
+                            viewModel.setUrl(target)
+                            activeNavigationTab = "home"
+                        }
+                    )
+                } else if (activeNavigationTab == "settings") {
+                    SummerSettingsPage(
+                        viewModel = viewModel,
+                        textPrimaryColor = textPrimaryColor,
+                        textSecondaryColor = textSecondaryColor,
+                        glassBg = glassBg,
+                        glassBorder = glassBorder,
+                        isHapticVibeEnabled = isHapticVibeEnabled,
+                        onClose = {
+                            activeNavigationTab = "home"
+                        }
+                    )
+                } else {
+                    when {
+                        currentUrl.isEmpty() -> {
+                            // Show beautiful Summer New Tab Page
+                            NewTabPage(
                                 viewModel = viewModel,
-                                onBack = {
-                                    isVerified = false
-                                    addressTextInput = ""
-                                    viewModel.setUrl("")
+                                onOpenSecuritySettings = {
+                                    showSecuritySettingsDialog = true
+                                },
+                                onNavigate = { target ->
+                                    addressTextInput = target
+                                    viewModel.setUrl(target)
                                 }
                             )
-                        } else {
-                            AdminPasswordEntryPage(
-                                onVerify = { pinCode ->
-                                    if (pinCode == "1234") {
-                                        isVerified = true
-                                        viewModel.setAdminStatus(true)
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                },
-                                onCancel = {
+                        }
+
+                        currentUrl == "chrome-native://blocked" -> {
+                            // RKN custom block page
+                            BlockedPage(
+                                viewModel = viewModel,
+                                onBack = { viewModel.setUrl("") }
+                            )
+                        }
+
+                        currentUrl == "chrome-native://market" -> {
+                            // Custom RosMarket store
+                            RosMarketPage(
+                                viewModel = viewModel,
+                                onBack = {
                                     addressTextInput = ""
                                     viewModel.setUrl("")
                                 }
                             )
                         }
-                    }
 
-                    currentUrl == "chrome-native://rossearx" -> {
-                        // Custom RosPoisk engine UI
-                        SearchPage(
-                            viewModel = viewModel,
-                            onBack = { viewModel.setUrl("") },
-                            onNavigate = { target ->
-                                addressTextInput = target
-                                viewModel.setUrl(target)
+                        currentUrl == "chrome-native://admin" -> {
+                            var isVerified by remember(currentUrl) { mutableStateOf(false) }
+                            if (isVerified) {
+                                RosAdminPanelPage(
+                                    viewModel = viewModel,
+                                    onBack = {
+                                        isVerified = false
+                                        addressTextInput = ""
+                                        viewModel.setUrl("")
+                                    }
+                                )
+                            } else {
+                                AdminPasswordEntryPage(
+                                    onVerify = { pinCode ->
+                                        if (pinCode == "1234") {
+                                            isVerified = true
+                                            viewModel.setAdminStatus(true)
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    },
+                                    onCancel = {
+                                        addressTextInput = ""
+                                        viewModel.setUrl("")
+                                    }
+                                )
                             }
-                        )
-                    }
+                        }
 
-                    else -> {
-                        // Real rendering of target website inside WebView
-                        WebViewContainer(
-                            url = currentUrl,
-                            viewModel = viewModel,
-                            onWebViewCreated = { activeWebView = it }
-                        )
+                        currentUrl == "chrome-native://rossearx" -> {
+                            // Custom RosPoisk engine UI
+                            SearchPage(
+                                viewModel = viewModel,
+                                onBack = { viewModel.setUrl("") },
+                                onNavigate = { target ->
+                                    addressTextInput = target
+                                    viewModel.setUrl(target)
+                                }
+                            )
+                        }
+
+                        else -> {
+                            // Real rendering of target website inside WebView
+                            WebViewContainer(
+                                url = currentUrl,
+                                viewModel = viewModel,
+                                onWebViewCreated = { activeWebView = it }
+                            )
+                        }
                     }
                 }
             }
@@ -729,199 +761,218 @@ fun BrowserMainScreen(viewModel: BrowserViewModel) {
                 label = "MicPulse"
             )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(focusedWeight)
-                    .align(Alignment.CenterHorizontally)
-                    .shadow(12.dp, RoundedCornerShape(20.dp), clip = false)
-                    .drawBehind {
-                        // Drawing Tricolor glowing shadow around centered focused address bar
-                        if (isOmniboxFocused) {
-                            val strokeW = 4.dp.toPx()
-                            val tricolorBrush = Brush.horizontalGradient(
-                                colors = listOf(Color.White, Color(0xFF1E88E5), Color(0xFFE53935))
-                            )
-                            drawRoundRect(
-                                brush = tricolorBrush,
-                                size = size,
-                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(
-                                    20.dp.toPx(),
-                                    20.dp.toPx()
-                                ),
-                                style = Stroke(width = strokeW)
+              if (activeNavigationTab == "home") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(focusedWeight)
+                        .align(Alignment.CenterHorizontally)
+                        .shadow(12.dp, RoundedCornerShape(20.dp), clip = false)
+                        .drawBehind {
+                            // Drawing Tricolor glowing shadow around centered focused address bar
+                            if (isOmniboxFocused) {
+                                val strokeW = 4.dp.toPx()
+                                val tricolorBrush = Brush.horizontalGradient(
+                                    colors = listOf(Color.White, Color(0xFF1E88E5), Color(0xFFE53935))
+                                )
+                                drawRoundRect(
+                                    brush = tricolorBrush,
+                                    size = size,
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                                        20.dp.toPx(),
+                                        20.dp.toPx()
+                                    ),
+                                    style = Stroke(width = strokeW)
+                                )
+                            }
+                        }
+                        .border(
+                            1.dp,
+                            if (isOmniboxFocused) Color.Transparent else glassBorder,
+                            RoundedCornerShape(20.dp)
+                        )
+                        .background(glassBg, RoundedCornerShape(20.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Return Back to NTP button inside URL browsing state
+                    if (currentUrl.isNotEmpty()) {
+                        IconButton(
+                            onClick = backAction,
+                            modifier = Modifier.size(34.dp).testTag("omnibox_return_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Home,
+                                contentDescription = "Домой",
+                                tint = textPrimaryColor
                             )
                         }
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        val bookmarks by viewModel.bookmarksList.collectAsState()
+                        val isBookmarked = bookmarks.contains(currentUrl)
+                        IconButton(
+                            onClick = {
+                                viewModel.toggleBookmark(currentUrl, context)
+                                val toastMsg = if (!isBookmarked) "Добавлено в закладки" else "Удалено из закладок"
+                                Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(34.dp).testTag("bookmark_star_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = "Закладка",
+                                tint = if (isBookmarked) Color(0xFFFFC000) else textPrimaryColor
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
-                    .border(
-                        1.dp,
-                        if (isOmniboxFocused) Color.Transparent else glassBorder,
-                        RoundedCornerShape(20.dp)
+
+                    // Security Shield Lock Icon with MicroWaves (as requested) (Clickable to open security settings panel)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .clickable { showSecuritySettingsDialog = true }
+                            .testTag("security_shield_icon_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Micro waves drawings around shield
+                        val lockWaves by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1800, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "LockWave"
+                        )
+
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val c = Offset(this.size.width / 2f, this.size.height / 2f)
+                            if (isOmniboxFocused || currentUrl.startsWith("https://")) {
+                                drawCircle(
+                                    color = Color(0xFF4CAF50).copy(alpha = 0.25f * (1f - lockWaves)),
+                                    radius = this.size.width * 0.45f * lockWaves,
+                                    center = c,
+                                    style = Stroke(width = 3f)
+                                )
+                            }
+                        }
+
+                        Icon(
+                            imageVector = if (currentUrl.startsWith("https://") || currentUrl.isEmpty()) Icons.Default.Lock else Icons.Default.NoEncryption,
+                            contentDescription = "Безопасность",
+                            tint = if (currentUrl.startsWith("https://") || currentUrl.isEmpty()) {
+                                if (browserMode == BrowserMode.STEALTH) Color(0xFF00FF66) else Color(0xFF4CAF50)
+                            } else Color(0xFFF44336),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    // Central address typing input field
+                    OutlinedTextField(
+                        value = addressTextInput,
+                        onValueChange = { addressTextInput = it },
+                        placeholder = {
+                            Text(
+                                text = if (browserMode == BrowserMode.KIDS) "Поиск детских доброй сайтов..." else "Поиск в РосПоиске или адрес...",
+                                color = textSecondaryColor.copy(alpha = 0.7f),
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { state ->
+                                isOmniboxFocused = state.isFocused
+                            }
+                            .testTag("omnibox_input_field"),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = textPrimaryColor,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Search
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                focusManager.clearFocus()
+                                viewModel.setUrl(addressTextInput)
+                            }
+                        )
                     )
-                    .background(glassBg, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Return Back to NTP button inside URL browsing state
-                if (currentUrl.isNotEmpty()) {
+
+                    // Voice input microphone (Pulsates on trigger)
                     IconButton(
-                        onClick = backAction,
-                        modifier = Modifier.size(34.dp).testTag("omnibox_return_button")
+                        onClick = { showVoiceDialog = true },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .graphicsLayer {
+                                if (showVoiceDialog) {
+                                    scaleX = micScale
+                                    scaleY = micScale
+                                }
+                            }
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = "Домой",
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Голосовой РосПоиск",
+                            tint = if (showVoiceDialog) Color.Red else textPrimaryColor
+                        )
+                    }
+
+                    // QR Code scan scanner access code
+                    IconButton(
+                        onClick = { showQrDialog = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.QrCodeScanner,
+                            contentDescription = "QR-сканер",
                             tint = textPrimaryColor
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
 
-                    val bookmarks by viewModel.bookmarksList.collectAsState()
-                    val isBookmarked = bookmarks.contains(currentUrl)
+                    // Advanced Settings cog
                     IconButton(
-                        onClick = {
-                            viewModel.toggleBookmark(currentUrl, context)
-                            val toastMsg = if (!isBookmarked) "Добавлено в закладки" else "Удалено из закладок"
-                            Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.size(34.dp).testTag("bookmark_star_button")
+                        onClick = { showAdvancedSettingsDialog = true },
+                        modifier = Modifier.size(32.dp).testTag("settings_button")
                     ) {
                         Icon(
-                            imageVector = if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = "Закладка",
-                            tint = if (isBookmarked) Color(0xFFFFC000) else textPrimaryColor
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Настройки",
+                            tint = textPrimaryColor
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
-                }
-
-                // Security Shield Lock Icon with MicroWaves (as requested) (Clickable to open security settings panel)
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .clickable { showSecuritySettingsDialog = true }
-                        .testTag("security_shield_icon_button"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Micro waves drawings around shield
-                    val lockWaves by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1800, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "LockWave"
-                    )
-
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val c = Offset(this.size.width / 2f, this.size.height / 2f)
-                        if (isOmniboxFocused || currentUrl.startsWith("https://")) {
-                            drawCircle(
-                                color = Color(0xFF4CAF50).copy(alpha = 0.25f * (1f - lockWaves)),
-                                radius = this.size.width * 0.45f * lockWaves,
-                                center = c,
-                                style = Stroke(width = 3f)
-                            )
-                        }
-                    }
-
-                    Icon(
-                        imageVector = if (currentUrl.startsWith("https://") || currentUrl.isEmpty()) Icons.Default.Lock else Icons.Default.NoEncryption,
-                        contentDescription = "Безопасность",
-                        tint = if (currentUrl.startsWith("https://") || currentUrl.isEmpty()) {
-                            if (browserMode == BrowserMode.STEALTH) Color(0xFF00FF66) else Color(0xFF4CAF50)
-                        } else Color(0xFFF44336),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                // Central address typing input field
-                OutlinedTextField(
-                    value = addressTextInput,
-                    onValueChange = { addressTextInput = it },
-                    placeholder = {
-                        Text(
-                            text = if (browserMode == BrowserMode.KIDS) "Поиск детских добрых сайтов..." else "Поиск в РосПоиске или адрес...",
-                            color = textSecondaryColor.copy(alpha = 0.7f),
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { state ->
-                            isOmniboxFocused = state.isFocused
-                        }
-                        .testTag("omnibox_input_field"),
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = textPrimaryColor,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Search
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            focusManager.clearFocus()
-                            viewModel.setUrl(addressTextInput)
-                        }
-                    )
-                )
-
-                // Voice input microphone (Pulsates on trigger)
-                IconButton(
-                    onClick = { showVoiceDialog = true },
-                    modifier = Modifier
-                        .size(32.dp)
-                        .graphicsLayer {
-                            if (showVoiceDialog) {
-                                scaleX = micScale
-                                scaleY = micScale
-                            }
-                        }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Голосовой РосПоиск",
-                        tint = if (showVoiceDialog) Color.Red else textPrimaryColor
-                    )
-                }
-
-                // QR Code scan scanner access code
-                IconButton(
-                    onClick = { showQrDialog = true },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCodeScanner,
-                        contentDescription = "QR-сканер",
-                        tint = textPrimaryColor
-                    )
-                }
-
-                // Advanced Settings cog
-                IconButton(
-                    onClick = { showAdvancedSettingsDialog = true },
-                    modifier = Modifier.size(32.dp).testTag("settings_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Настройки",
-                        tint = textPrimaryColor
-                    )
                 }
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            SummerBottomNavigationBar(
+                activeTab = activeNavigationTab,
+                onTabSelected = { tab ->
+                    activeNavigationTab = tab
+                    if (tab != "home") {
+                        focusManager.clearFocus()
+                    }
+                },
+                textPrimaryColor = textPrimaryColor,
+                textSecondaryColor = textSecondaryColor,
+                glassBg = glassBg,
+                glassBorder = glassBorder,
+                isHapticVibeEnabled = isHapticVibeEnabled
+            )
         }
     }
 
@@ -2392,5 +2443,611 @@ fun sendFSBNotification(context: Context) {
     } catch(e: Exception) {
         // Fallback alert on terminal or toast if android notifications blocks
         Toast.makeText(context, "ФСБ: ваш телефон прослушивается, не сопротивляйтесь.", Toast.LENGTH_LONG).show()
+    }
+}
+
+@Composable
+fun SummerBottomNavigationBar(
+    activeTab: String,
+    onTabSelected: (String) -> Unit,
+    textPrimaryColor: Color,
+    textSecondaryColor: Color,
+    glassBg: Color,
+    glassBorder: Color,
+    isHapticVibeEnabled: Boolean
+) {
+    val haptic = LocalHapticFeedback.current
+    
+    // Transparent-glass floating capsule
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .shadow(8.dp, RoundedCornerShape(24.dp))
+            .border(1.dp, glassBorder, RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = glassBg)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp, horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Tab 1: Домой (Home)
+            val isHomeActive = activeTab == "home"
+            val homeAnimColor by animateColorAsState(
+                targetValue = if (isHomeActive) Color(0xFFF59E0B) else textSecondaryColor.copy(alpha = 0.6f),
+                label = "HomeColor"
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        onTabSelected("home")
+                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    .padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isHomeActive) Color(0xFFFEF3C7).copy(alpha = 0.3f) else Color.Transparent)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Домой",
+                        tint = homeAnimColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "Домой",
+                    fontSize = 11.sp,
+                    fontWeight = if (isHomeActive) FontWeight.Bold else FontWeight.Medium,
+                    color = homeAnimColor
+                )
+            }
+
+            // Tab 2: История (History)
+            val isHistoryActive = activeTab == "history"
+            val historyAnimColor by animateColorAsState(
+                targetValue = if (isHistoryActive) Color(0xFFF97316) else textSecondaryColor.copy(alpha = 0.6f),
+                label = "HistoryColor"
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        onTabSelected("history")
+                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    .padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isHistoryActive) Color(0xFFFFEDD5).copy(alpha = 0.3f) else Color.Transparent)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = "История",
+                        tint = historyAnimColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "История",
+                    fontSize = 11.sp,
+                    fontWeight = if (isHistoryActive) FontWeight.Bold else FontWeight.Medium,
+                    color = historyAnimColor
+                )
+            }
+
+            // Tab 3: Настройки (Settings)
+            val isSettingsActive = activeTab == "settings"
+            val settingsAnimColor by animateColorAsState(
+                targetValue = if (isSettingsActive) Color(0xFF0D9488) else textSecondaryColor.copy(alpha = 0.6f),
+                label = "SettingsColor"
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        onTabSelected("settings")
+                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    .padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isSettingsActive) Color(0xFFCCFBF1).copy(alpha = 0.3f) else Color.Transparent)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Настройки",
+                        tint = settingsAnimColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "Настройки",
+                    fontSize = 11.sp,
+                    fontWeight = if (isSettingsActive) FontWeight.Bold else FontWeight.Medium,
+                    color = settingsAnimColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SummerHistoryPage(
+    viewModel: BrowserViewModel,
+    textPrimaryColor: Color,
+    textSecondaryColor: Color,
+    glassBg: Color,
+    glassBorder: Color,
+    isHapticVibeEnabled: Boolean,
+    onNavigate: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val history by viewModel.history.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+    val haptic = LocalHapticFeedback.current
+
+    val filteredHistory = remember(history, searchQuery) {
+        history.filter { url ->
+            url.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(14.dp)
+            .border(1.dp, glassBorder, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = glassBg)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // Title and action
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        tint = Color(0xFFF97316),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "История посещений",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textPrimaryColor
+                    )
+                }
+                
+                if (history.isNotEmpty()) {
+                    IconButton(
+                        onClick = {
+                            viewModel.clearHistory(context)
+                            Toast.makeText(context, "История полностью очищена!", Toast.LENGTH_SHORT).show()
+                            if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteSweep,
+                            contentDescription = "Очистить всё",
+                            tint = Color(0xFFFF5252)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Search history field
+            if (history.isNotEmpty()) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Поиск по истории...", fontSize = 12.sp, color = textPrimaryColor.copy(alpha = 0.5f)) },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = textSecondaryColor)
+                    },
+                    textStyle = androidx.compose.ui.text.TextStyle(color = textPrimaryColor, fontSize = 13.sp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFF97316),
+                        unfocusedBorderColor = textPrimaryColor.copy(alpha = 0.15f),
+                        focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // List or Empty state
+            if (history.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "🏖️",
+                            fontSize = 48.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            text = "Пляж пуст...",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = textPrimaryColor
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Вы не посещали сайты в этом профиле.\nВремя начать летний серфинг!",
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center,
+                            color = textSecondaryColor.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            } else if (filteredHistory.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Ничего не найдено",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = textSecondaryColor.copy(alpha = 0.7f)
+                    )
+                }
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredHistory.size) { index ->
+                        val url = filteredHistory[index]
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onNavigate(url)
+                                },
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .background(Color(0xFFFFF7ED), RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Language,
+                                            contentDescription = null,
+                                            tint = Color(0xFFF97316),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        val displayTitle = url.removePrefix("https://").removePrefix("http://").removePrefix("www.")
+                                        Text(
+                                            text = displayTitle,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = textPrimaryColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = url,
+                                            fontSize = 10.sp,
+                                            color = textSecondaryColor.copy(alpha = 0.8f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.deleteHistoryItem(url, context)
+                                        Toast.makeText(context, "Запись удалена", Toast.LENGTH_SHORT).show()
+                                        if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Удалить запись",
+                                        tint = textSecondaryColor.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SummerSettingsPage(
+    viewModel: BrowserViewModel,
+    textPrimaryColor: Color,
+    textSecondaryColor: Color,
+    glassBg: Color,
+    glassBorder: Color,
+    isHapticVibeEnabled: Boolean,
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    
+    val browserMode by viewModel.browserMode.collectAsState()
+    val isSummerBgAnimEnabled by viewModel.isSummerBgAnimEnabled.collectAsState()
+    val flagWaveSpeed by viewModel.flagWaveSpeed.collectAsState()
+    val searchEnginePreset by viewModel.searchEnginePreset.collectAsState()
+    val fontSizeScale by viewModel.fontSizeScale.collectAsState()
+    val filterLevel by viewModel.filterLevel.collectAsState()
+    val biometricsEnabled by viewModel.isBiometricsEnabled.collectAsState()
+    val currentProfile by viewModel.currentProfile.collectAsState()
+    
+    var userLoginPinCode by remember { mutableStateOf("1234") }
+    var enteredPinCode by remember { mutableStateOf("") }
+    
+    var activeSettingsTab by remember { mutableStateOf(0) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(14.dp)
+            .border(1.dp, glassBorder, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = glassBg)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = Color(0xFF0D9488),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Настройки браузера",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textPrimaryColor
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFF0D9488).copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text("РФ", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0D9488))
+                }
+            }
+
+            // Custom Glass Scrollable Tabs
+            val tabs = listOf("Оформление", "Безопасность", "Профиль & Облако")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                tabs.forEachIndexed { idx, label ->
+                    val isSel = activeSettingsTab == idx
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (isSel) Color(0xFF0D9488) else Color.Transparent,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                activeSettingsTab = idx
+                                if (isHapticVibeEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSel) Color.White else textPrimaryColor.copy(alpha = 0.7f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            // Scrollable Settings Content Area
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    when (activeSettingsTab) {
+                        0 -> {
+                            ThemeSelectorComponent(
+                                browserMode = browserMode,
+                                isSummerBgAnimEnabled = isSummerBgAnimEnabled,
+                                flagWaveSpeed = flagWaveSpeed,
+                                fontSizeScale = fontSizeScale,
+                                searchEnginePreset = searchEnginePreset,
+                                isHapticVibeEnabled = isHapticVibeEnabled,
+                                haptic = haptic,
+                                context = context,
+                                viewModel = viewModel,
+                                textPrimaryColor = textPrimaryColor,
+                                textSecondaryColor = textSecondaryColor,
+                                glassBorder = glassBorder,
+                                onModeChange = { m ->
+                                    viewModel.changeMode(m)
+                                    if (m == BrowserMode.REGULAR) {
+                                        viewModel.updateSearchQuery("")
+                                    }
+                                }
+                            )
+                        }
+                        1 -> {
+                            SecuritySettingsComponent(
+                                filterLevel = filterLevel,
+                                biometricsEnabled = biometricsEnabled,
+                                userLoginPinCode = userLoginPinCode,
+                                enteredPinCode = enteredPinCode,
+                                isHapticVibeEnabled = isHapticVibeEnabled,
+                                haptic = haptic,
+                                context = context,
+                                viewModel = viewModel,
+                                textPrimaryColor = textPrimaryColor,
+                                textSecondaryColor = textSecondaryColor,
+                                glassBorder = glassBorder,
+                                onPinEnteredChange = { enteredPinCode = it },
+                                onPinUpdate = { userLoginPinCode = it },
+                                onOpenPasswords = {
+                                    // Normally we would launch password dialog
+                                }
+                            )
+                        }
+                        2 -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .border(1.dp, glassBorder.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val profileInitials = currentProfile?.name?.take(2)?.uppercase() ?: "ПР"
+                                        val profileColorHex = currentProfile?.avatarColor ?: "FF1E88E5"
+                                        val profileColor = try {
+                                            val hex = profileColorHex.trim().removePrefix("#")
+                                            Color(android.graphics.Color.parseColor("#$hex"))
+                                        } catch (e: Throwable) {
+                                            Color(0xFF1E88E5)
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(profileColor.copy(alpha = 0.25f), CircleShape)
+                                                .border(1.dp, profileColor, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(profileInitials, color = textPrimaryColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Текущий Профиль:", fontSize = 10.sp, color = textSecondaryColor)
+                                            Text(currentProfile?.name ?: "Неизвестно", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = textPrimaryColor)
+                                            Text("ID: РФ-941-${currentProfile?.id ?: 1}", fontSize = 9.sp, color = textSecondaryColor)
+                                        }
+                                    }
+                                }
+                                
+                                Button(
+                                    onClick = {
+                                        Toast.makeText(context, "Облачная синхронизация профиля завершена!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Синхронизировать Облако", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
