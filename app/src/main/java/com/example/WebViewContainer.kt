@@ -44,6 +44,32 @@ fun WebViewContainer(
                     }
 
                     webViewClient = object : WebViewClient() {
+                        override fun shouldInterceptRequest(
+                            view: WebView?,
+                            request: WebResourceRequest?
+                        ): android.webkit.WebResourceResponse? {
+                            val reqUrl = request?.url?.toString() ?: return null
+                            
+                            val isAdBlockActive = viewModel.isAdBlockActive.value
+                            val isTrackerBlockingEnabled = viewModel.isTrackerBlockingEnabled.value
+                            val isEasyListEnabled = viewModel.isEasyListRussiaEnabled.value
+                            val isRuAdListEnabled = viewModel.isRuAdListEnabled.value
+                            
+                            val matchesAdBlock = isAdBlockActive && isEasyListEnabled && AdBlockEngine.matchesEasyListRussia(reqUrl)
+                            val matchesTracker = isTrackerBlockingEnabled && isRuAdListEnabled && AdBlockEngine.matchesRuAdList(reqUrl)
+                            
+                            if (matchesAdBlock || matchesTracker) {
+                                viewModel.incrementBlockedCount()
+                                return android.webkit.WebResourceResponse(
+                                    "text/plain",
+                                    "UTF-8",
+                                    java.io.ByteArrayInputStream("".toByteArray())
+                                )
+                            }
+                            
+                            return super.shouldInterceptRequest(view, request)
+                        }
+
                         override fun shouldOverrideUrlLoading(
                             view: WebView?,
                             request: WebResourceRequest?

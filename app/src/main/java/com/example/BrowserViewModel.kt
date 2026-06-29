@@ -244,6 +244,8 @@ class BrowserViewModel : ViewModel() {
 
         val sp = context.getSharedPreferences("rosbrowser_profiles_pref", Context.MODE_PRIVATE)
         _isSecureWarningEnabled.value = sp.getBoolean("is_secure_warning_enabled", true)
+        _isEasyListRussiaEnabled.value = sp.getBoolean("is_easylist_russia_enabled", true)
+        _isRuAdListEnabled.value = sp.getBoolean("is_ruadlist_enabled", true)
 
         // Load balance & purchased items
         val marketPrefs = context.applicationContext.getSharedPreferences("rosbrowser_market_pref", Context.MODE_PRIVATE)
@@ -585,12 +587,16 @@ class BrowserViewModel : ViewModel() {
         sp.edit().putBoolean("is_secure_warning_enabled", enabled).apply()
     }
 
-    fun setEasyListRussiaEnabled(enabled: Boolean) {
+    fun setEasyListRussiaEnabled(enabled: Boolean, context: Context) {
         _isEasyListRussiaEnabled.value = enabled
+        val sp = context.getSharedPreferences("rosbrowser_profiles_pref", Context.MODE_PRIVATE)
+        sp.edit().putBoolean("is_easylist_russia_enabled", enabled).apply()
     }
 
-    fun setRuAdListEnabled(enabled: Boolean) {
+    fun setRuAdListEnabled(enabled: Boolean, context: Context) {
         _isRuAdListEnabled.value = enabled
+        val sp = context.getSharedPreferences("rosbrowser_profiles_pref", Context.MODE_PRIVATE)
+        sp.edit().putBoolean("is_ruadlist_enabled", enabled).apply()
     }
 
     fun setCustomBgPhoto(photo: String?, context: Context) {
